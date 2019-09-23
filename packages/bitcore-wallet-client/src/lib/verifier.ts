@@ -2,10 +2,11 @@ import * as _ from 'lodash';
 import { Utils } from './common';
 var $ = require('preconditions').singleton();
 
-import { BitcoreLib, BitcoreLibCash } from 'crypto-wallet-core';
+import { BitcoreLib, BitcoreLibCash, BitcoreLibPeercoin } from 'crypto-wallet-core';
 
 var Bitcore = BitcoreLib;
 var BCHAddress = BitcoreLibCash.Address;
+var PPCAddress = BitcoreLibPeercoin.Address;
 
 var log = require('./log');
 
@@ -186,6 +187,9 @@ export class Verifier {
 
     // Workaround for cashaddr/legacy address problems...
     if (txp.coin == 'bch' && (new BCHAddress(toAddress).toString()) != (new BCHAddress(payproOpts.toAddress).toString()))
+      return false;
+
+    if (txp.coin == 'ppc' && (new PPCAddress(toAddress).toString()) != (new PPCAddress(payproOpts.toAddress).toString()))
       return false;
 
     // this generates problems...

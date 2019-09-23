@@ -14,7 +14,8 @@ var config = require('../test-config');
 var Bitcore = require('bitcore-lib');
 var Bitcore_ = {
   btc: Bitcore,
-  bch: require('bitcore-lib-cash')
+  bch: require('bitcore-lib-cash'),
+  ppc: require('bitcore-lib-peercoin'),
 };
 
 
@@ -28,6 +29,7 @@ var Defaults = Common.Defaults;
 
 var Model = require('../../ts_build/lib/model');
 var BCHAddressTranslator = require('../../ts_build/lib/bchaddresstranslator');
+var PPCAddressTranslator = require('../../ts_build/lib/ppcaddresstranslator');
 
 var HugeTxs = require('./hugetx');
 var TestData = require('../testdata');

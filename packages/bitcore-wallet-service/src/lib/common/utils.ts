@@ -7,7 +7,8 @@ const secp256k1 = require('secp256k1');
 const Bitcore = require('bitcore-lib');
 const Bitcore_ = {
   btc: Bitcore,
-  bch: require('bitcore-lib-cash')
+  bch: require('bitcore-lib-cash'),
+  ppc: require('bitcore-lib-peercoin'),
 };
 
 export class Utils {
@@ -116,6 +117,11 @@ export class Utils {
       },
       eth: {
         toSatoshis: 1e18,
+        maxDecimals: 6,
+        minDecimals: 2
+      },
+      ppc: {
+        toSatoshis: 1e6,
         maxDecimals: 6,
         minDecimals: 2
       },
@@ -248,7 +254,12 @@ export class Utils {
         new Bitcore_['bch'].Address(address);
         return 'bch';
       } catch (e) {
-        return;
+        try {
+          new Bitcore_['ppc'].Address(address);
+          return 'ppc';
+        } catch (e) {
+          return;
+        }
       }
     }
   }

@@ -9,10 +9,12 @@ const log = require('npmlog');
 log.debug = log.verbose;
 const Common = require('../common');
 const BCHAddressTranslator = require('../bchaddresstranslator');
+const PPCAddressTranslator = require('../ppcaddresstranslator');
 const Bitcore = require('bitcore-lib');
 const Bitcore_ = {
   btc: Bitcore,
   bch: require('bitcore-lib-cash'),
+  ppc: require('bitcore-lib-peercoin'),
   eth: Bitcore
 };
 const config = require('../../config');

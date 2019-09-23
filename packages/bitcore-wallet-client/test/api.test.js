@@ -21,6 +21,7 @@ var Bitcore = CWC.BitcoreLib;
 var Bitcore_ = {
   btc: Bitcore,
   bch: CWC.BitcoreLibCash,
+  ppc: CWC.BitcoreLibPeercoin,
 };
 
 var BWS = require('bitcore-wallet-service');

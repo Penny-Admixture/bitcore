@@ -19,6 +19,7 @@ var Bitcore = CWC.BitcoreLib;
 var Bitcore_ = {
   btc: CWC.BitcoreLib,
   bch: CWC.BitcoreLibCash,
+  ppc: CWC.BitcoreLibPeercoin,
   eth: CWC.BitcoreLib
 };
 var Mnemonic = require('bitcore-mnemonic');
@@ -63,6 +64,7 @@ export class API extends EventEmitter {
   // Expose bitcore
   static Bitcore = CWC.BitcoreLib;
   static BitcoreCash = CWC.BitcoreLibCash;
+  static BitcorePeercoin = CWC.BitcoreLibPeercoin;
 
   constructor(opts?) {
     super();

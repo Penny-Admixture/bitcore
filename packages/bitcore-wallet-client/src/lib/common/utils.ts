@@ -1,6 +1,6 @@
 'use strict';
 
-import { BitcoreLib, BitcoreLibCash, Deriver, Transactions } from 'crypto-wallet-core';
+import { BitcoreLib, BitcoreLibCash, BitcoreLibPeercoin, Deriver, Transactions } from 'crypto-wallet-core';
 
 import * as _ from 'lodash';
 import { Constants } from './constants';
@@ -14,6 +14,7 @@ var Bitcore = BitcoreLib;
 var Bitcore_ = {
   btc: Bitcore,
   bch: BitcoreLibCash,
+  ppc: BitcoreLibPeercoin
   eth: Bitcore
 };
 var PrivateKey = Bitcore.PrivateKey;

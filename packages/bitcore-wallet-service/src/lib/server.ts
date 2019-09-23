@@ -15,6 +15,7 @@ const $ = require('preconditions').singleton();
 const deprecatedServerMessage = require('../deprecated-serverMessages');
 const serverMessages = require('../serverMessages');
 const BCHAddressTranslator = require('./bchaddresstranslator');
+const PPCAddressTranslator = require('./ppcaddresstranslator');
 
 log.debug = log.verbose;
 log.disableColor();
@@ -26,6 +27,7 @@ const Bitcore = require('bitcore-lib');
 const Bitcore_ = {
   btc: Bitcore,
   bch: require('bitcore-lib-cash'),
+  ppc: require('bitcore-lib-peercoin'),
   eth: Bitcore
 };
 

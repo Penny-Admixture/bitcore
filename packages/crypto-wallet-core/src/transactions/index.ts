@@ -1,11 +1,13 @@
 import { BCHTxProvider } from './bch';
 import { BTCTxProvider } from './btc';
+import { PPCTxProvider } from './ppc';
 import { ERC20TxProvider } from './erc20';
 import { ETHTxProvider } from './eth';
 
 const providers = {
   BTC: new BTCTxProvider(),
   BCH: new BCHTxProvider(),
+  PPC: new PPCTxProvider(),
   ETH: new ETHTxProvider(),
   ERC20: new ERC20TxProvider()
 };
