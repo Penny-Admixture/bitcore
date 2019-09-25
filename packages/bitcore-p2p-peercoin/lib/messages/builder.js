@@ -50,6 +50,7 @@ function builder(options) {
       inv: 'Inventory',
       addr: 'Addresses',
       alert: 'Alert',
+      checkpoint: 'Checkpoint',
       reject: 'Reject',
       merkleblock: 'MerkleBlock',
       filterload: 'FilterLoad',
