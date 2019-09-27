@@ -42,6 +42,7 @@ HeadersMessage.prototype.setPayload = function(payload) {
     this.headers.push(header);
     var txn_count = parser.readUInt8();
     $.checkState(txn_count === 0, 'txn_count should always be 0');
+    txn_count = parser.readUInt8(); // extra peercoin padding
   }
   utils.checkFinished(parser);
 };
