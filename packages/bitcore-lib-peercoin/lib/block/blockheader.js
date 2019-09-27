@@ -144,7 +144,7 @@ BlockHeader._fromBufferReader = function _fromBufferReader(br) {
   info.time = br.readUInt32LE();
   info.bits = br.readUInt32LE();
   info.nonce = br.readUInt32LE();
-  info.nflags = br.readInt32LE();
+//  info.nflags = br.readInt32LE();
   return info;
 };
 
@@ -201,7 +201,7 @@ BlockHeader.prototype.toBufferWriter = function toBufferWriter(bw) {
   bw.writeUInt32LE(this.time);
   bw.writeUInt32LE(this.bits);
   bw.writeUInt32LE(this.nonce);
-  bw.writeInt32LE(this.nflags);
+//  bw.writeInt32LE(this.nflags);
   return bw;
 };
 
