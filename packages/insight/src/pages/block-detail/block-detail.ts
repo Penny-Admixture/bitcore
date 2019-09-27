@@ -54,7 +54,7 @@ export class BlockDetailPage {
     this.blocksProvider.getBlock(this.blockHash, this.chainNetwork).subscribe(
       response => {
         let block;
-        if(this.chainNetwork.chain === "BTC" || this.chainNetwork.chain === "BCH") {
+        if(this.chainNetwork.chain === "BTC" || this.chainNetwork.chain === "BCH" || this.chainNetwork.chain === "PPC") {
           block = this.blocksProvider.toUtxoCoinAppBlock(response);
         }
         if(this.chainNetwork.chain === "ETH") {

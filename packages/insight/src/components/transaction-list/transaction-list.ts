@@ -30,7 +30,7 @@ export class TransactionListComponent implements OnInit {
           response => {            
             // Newly Generated Coins (Coinbase) First
             const txs = response.map((tx: ApiEthTx & ApiUtxoCoinTx) => {
-              if(this.chainNetwork.chain === "BTC" || this.chainNetwork.chain === "BCH") {
+              if(this.chainNetwork.chain === "BTC" || this.chainNetwork.chain === "BCH" || this.chainNetwork.chain === "PPC") {
                 return this.txProvider.toUtxoCoinsAppTx(tx)
               }
               if(this.chainNetwork.chain === "ETH") {
