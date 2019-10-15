@@ -21,7 +21,7 @@ describe('MultiSigInput', function() {
   var public1 = privateKey1.publicKey;
   var public2 = privateKey2.publicKey;
   var public3 = privateKey3.publicKey;
-  var address = new Address('H8piCq1XQrr3DbkPF5YFi5VdMV2mCQEnKW');
+  var address = new Address('33zbk2aSZYdNbRsMPPt6jgy6Kq1kQreqeb');
 
   var output = {
     txId: '66e64ef8a3b384164b78453fa8c8194de9a473ba14f89485a0e433699daec140',
@@ -103,13 +103,13 @@ describe('MultiSigInput', function() {
     var input = transaction.inputs[0];
     input._estimateSize().should.equal(147);
   });
-  it('uses SIGHASH_ALL|FORKID by default', function() {
+  it('uses SIGHASH_ALL by default', function() {
     var transaction = new Transaction()
       .from(output, [public1, public2, public3], 2)
       .to(address, 1000000);
     var input = transaction.inputs[0];
     var sigs = input.getSignatures(transaction, privateKey1, 0);
-    sigs[0].sigtype.should.equal(Signature.SIGHASH_ALL|Signature.SIGHASH_FORKID);
+    sigs[0].sigtype.should.equal(Signature.SIGHASH_ALL);
   });
   it('roundtrips to/from object', function() {
     var transaction = new Transaction()

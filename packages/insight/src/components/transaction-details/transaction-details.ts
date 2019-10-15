@@ -28,7 +28,7 @@ export class TransactionDetailsComponent implements OnInit {
   public chainNetwork: ChainNetwork;
   public confirmations: number;
 
-  private COIN = 100000000;
+  private COIN = 1000000;
 
   constructor(
     public currencyProvider: CurrencyProvider,
@@ -37,7 +37,7 @@ export class TransactionDetailsComponent implements OnInit {
     public redirProvider: RedirProvider,
     public blocksProvider: BlocksProvider
   ) {
-  }
+ }
 
   public ngOnInit(): void {
     if (this.chainNetwork.chain !== 'ETH') {

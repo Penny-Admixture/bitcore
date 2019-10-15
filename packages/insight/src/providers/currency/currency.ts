@@ -41,14 +41,17 @@ export class CurrencyProvider {
       case 'ETH':
           value = value * 1e-18;
         break;
-        default:
-          value = value * 1e-8;
+      case 'PPC':
+          value = value * 1e-6;
+        break;
+      default:
+        value = value * 1e-8;
         break;
     }
     if (value === 0.0) {
       return 0;
     }
-    
+
     let response: number;
 
     if (this.currencySymbol === 'USD') {
@@ -58,13 +61,13 @@ export class CurrencyProvider {
       'm' + this.apiProvider.networkSettings.selectedNetwork.chain
     ) {
       this.factor = 1000;
-      response = this.roundFloat(value * this.factor, 5);
+      response = this.roundFloat(value * this.factor, 3);
     } else if (this.currencySymbol === 'bits') {
       this.factor = 1000000;
-      response = this.roundFloat(value * this.factor, 2);
+      response = this.roundFloat(value * this.factor, 0);
     } else {
       this.factor = 1;
-      response = this.roundFloat(value * this.factor, 8);
+      response = this.roundFloat(value * this.factor, 6);
     }
 
     return response;

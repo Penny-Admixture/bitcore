@@ -79,15 +79,6 @@ Signature.fromTxFormat = function(buf) {
   return sig;
 };
 
-
-// The format used in a tx
-Signature.fromDataFormat = function(buf) {
-  var derbuf = buf.slice(0, buf.length);
-  var sig = new Signature.fromDER(derbuf, false);
-  return sig;
-};
-
-
 Signature.fromString = function(str) {
   var buf = Buffer.from(str, 'hex');
   return Signature.fromDER(buf);
@@ -200,149 +191,81 @@ Signature.prototype.toString = function() {
   return buf.toString('hex');
 };
 
-
-Signature.isTxDER = function(buf) {
-  return Signature.isDER(buf.slice(0, buf.length-1));
-}
-
 /**
  * This function is translated from bitcoind's IsDERSignature and is used in
  * the script interpreter.  This "DER" format actually includes an extra byte,
  * the nhashtype, at the end. It is really the tx format, not DER format.
  *
- * A canonical signature exists of: [30] [total len] [02] [len R] [R] [02] [len S] [S]
+ * A canonical signature exists of: [30] [total len] [02] [len R] [R] [02] [len S] [S] [hashtype]
  * Where R and S are not negative (their first byte has its highest bit not set), and not
  * excessively padded (do not start with a 0 byte, unless an otherwise negative number follows,
  * in which case a single 0 byte is necessary and even required).
  *
  * See https://bitcointalk.org/index.php?topic=8392.msg127623#msg127623
  */
-Signature.isDER = function(buf) {
-  // Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S]
-  // * total-length: 1-byte length descriptor of everything that follows,
-  // excluding the sighash byte.
-  // * R-length: 1-byte length descriptor of the R value that follows.
-  // * R: arbitrary-length big-endian encoded R value. It must use the
-  // shortest possible encoding for a positive integers (which means no null
-  // bytes at the start, except a single one when the next byte has its
-  // highest bit set).
-  // * S-length: 1-byte length descriptor of the S value that follows.
-  // * S: arbitrary-length big-endian encoded S value. The same rules apply.
-
-  // Minimum and maximum size constraints.
-  if (buf.length < 8 || buf.length > 72) {
+Signature.isTxDER = function(buf) {
+  if (buf.length < 9) {
+    //  Non-canonical signature: too short
+    return false;
+  }
+  if (buf.length > 73) {
+    // Non-canonical signature: too long
+    return false;
+  }
+  if (buf[0] !== 0x30) {
+    //  Non-canonical signature: wrong type
+    return false;
+  }
+  if (buf[1] !== buf.length - 3) {
+    //  Non-canonical signature: wrong length marker
+    return false;
+  }
+  var nLenR = buf[3];
+  if (5 + nLenR >= buf.length) {
+    //  Non-canonical signature: S length misplaced
+    return false;
+  }
+  var nLenS = buf[5 + nLenR];
+  if ((nLenR + nLenS + 7) !== buf.length) {
+    //  Non-canonical signature: R+S length mismatch
     return false;
   }
 
-  //
-  // Check that the signature is a compound structure of proper size.
-  //
-
-  // A signature is of type 0x30 (compound).
-  if (buf[0] != 0x30) {
+  var R = buf.slice(4);
+  if (buf[4 - 2] !== 0x02) {
+    //  Non-canonical signature: R value type mismatch
+    return false;
+  }
+  if (nLenR === 0) {
+    //  Non-canonical signature: R length is zero
+    return false;
+  }
+  if (R[0] & 0x80) {
+    //  Non-canonical signature: R value negative
+    return false;
+  }
+  if (nLenR > 1 && (R[0] === 0x00) && !(R[1] & 0x80)) {
+    //  Non-canonical signature: R value excessively padded
     return false;
   }
 
-  // Make sure the length covers the entire signature.
-  // Remove:
-  // * 1 byte for the coupound type.
-  // * 1 byte for the length of the signature.
-  if (buf[1] != buf.length - 2) {
+  var S = buf.slice(6 + nLenR);
+  if (buf[6 + nLenR - 2] !== 0x02) {
+    //  Non-canonical signature: S value type mismatch
     return false;
   }
-
-  //
-  // Check that R is an positive integer of sensible size.
-  //
-
-  // Check whether the R element is an integer.
-  if (buf[2] != 0x02) {
+  if (nLenS === 0) {
+    //  Non-canonical signature: S length is zero
     return false;
   }
-
-  // Extract the length of the R element.
-  var lenR = buf[3];
-
-  // Zero-length integers are not allowed for R.
-  if (lenR == 0) {
+  if (S[0] & 0x80) {
+    //  Non-canonical signature: S value negative
     return false;
   }
-
-  // Negative numbers are not allowed for R.
-  if (buf[4] & 0x80) {
+  if (nLenS > 1 && (S[0] === 0x00) && !(S[1] & 0x80)) {
+    //  Non-canonical signature: S value excessively padded
     return false;
   }
-
-  // Make sure the length of the R element is consistent with the signature
-  // size.
-  // Remove:
-  // * 1 byte for the coumpound type.
-  // * 1 byte for the length of the signature.
-  // * 2 bytes for the integer type of R and S.
-  // * 2 bytes for the size of R and S.
-  // * 1 byte for S itself.
-  if (lenR > (buf.length - 7)) {
-    return false;
-  }
-
-  // Null bytes at the start of R are not allowed, unless R would otherwise be
-  // interpreted as a negative number.
-  //
-  // /!\ This check can only be performed after we checked that lenR is
-  //     consistent with the size of the signature or we risk to access out of
-  //     bound elements.
-  if (lenR > 1 && (buf[4] == 0x00) && !(buf[5] & 0x80)) {
-    return false;
-  }
-
-  //
-  // Check that S is an positive integer of sensible size.
-  //
-
-  // S's definition starts after R's definition:
-  // * 1 byte for the coumpound type.
-  // * 1 byte for the length of the signature.
-  // * 1 byte for the size of R.
-  // * lenR bytes for R itself.
-  // * 1 byte to get to S.
-  var startS = lenR + 4;
-
-  // Check whether the S element is an integer.
-  if (buf[startS] != 0x02) {
-    return false;
-  }
-
-  // Extract the length of the S element.
-  var lenS = buf[startS + 1];
-
-  // Zero-length integers are not allowed for S.
-  if (lenS == 0) {
-    return false;
-  }
-
-  // Negative numbers are not allowed for S.
-  if (buf[startS + 2] & 0x80) {
-    return false;
-  }
-
-  // Verify that the length of S is consistent with the size of the signature
-  // including metadatas:
-  // * 1 byte for the integer type of S.
-  // * 1 byte for the size of S.
-  if (startS + lenS + 2 != buf.length) {
-    return false;
-  }
-
-  // Null bytes at the start of S are not allowed, unless S would otherwise be
-  // interpreted as a negative number.
-  //
-  // /!\ This check can only be performed after we checked that lenR and lenS
-  //     are consistent with the size of the signature or we risk to access
-  //     out of bound elements.
-  if (lenS > 1 && (buf[startS + 2] == 0x00) && !(buf[startS + 3] & 0x80)) {
-    return false;
-  }
-
   return true;
 };
 
@@ -368,9 +291,7 @@ Signature.prototype.hasDefinedHashtype = function() {
     return false;
   }
   // accept with or without Signature.SIGHASH_ANYONECANPAY by ignoring the bit
-  // base mask was 1F
-  var mask =  ~(Signature.SIGHASH_FORKID | Signature.SIGHASH_ANYONECANPAY) >>>0;
-  var temp = this.nhashtype  & mask;
+  var temp = this.nhashtype & ~Signature.SIGHASH_ANYONECANPAY;
   if (temp < Signature.SIGHASH_ALL || temp > Signature.SIGHASH_SINGLE) {
     return false;
   }
@@ -387,7 +308,6 @@ Signature.prototype.toTxFormat = function() {
 Signature.SIGHASH_ALL = 0x01;
 Signature.SIGHASH_NONE = 0x02;
 Signature.SIGHASH_SINGLE = 0x03;
-Signature.SIGHASH_FORKID = 0x40;
 Signature.SIGHASH_ANYONECANPAY = 0x80;
 
 module.exports = Signature;

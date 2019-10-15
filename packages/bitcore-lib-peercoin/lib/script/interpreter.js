@@ -8,8 +8,6 @@ var BN = require('../crypto/bn');
 var Hash = require('../crypto/hash');
 var Signature = require('../crypto/signature');
 var PublicKey = require('../publickey');
-var ECDSA = require('../crypto/ecdsa');
-
 
 /**
  * Bitcoin transactions contain scripts. Each input has a script called the
@@ -33,6 +31,82 @@ var Interpreter = function Interpreter(obj) {
   }
 };
 
+Interpreter.prototype.verifyWitnessProgram = function(version, program, witness, satoshis, flags) {
+
+  var scriptPubKey = new Script();
+  var stack = [];
+
+  if (version === 0) {
+    if (program.length === 32) {
+      if (witness.length === 0) {
+        this.errstr = 'SCRIPT_ERR_WITNESS_PROGRAM_WITNESS_EMPTY';
+        return false;
+      }
+
+      var scriptPubKeyBuffer = witness[witness.length - 1];
+      scriptPubKey = new Script(scriptPubKeyBuffer);
+      var hash = Hash.sha256(scriptPubKeyBuffer);
+      if (hash.toString('hex') !== program.toString('hex')) {
+        this.errstr = 'SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH';
+        return false;
+      }
+
+      stack = witness.slice(0, -1);
+    } else if (program.length === 20) {
+      if (witness.length !== 2) {
+        this.errstr = 'SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH';
+        return false;
+      }
+
+      scriptPubKey.add(Opcode.OP_DUP);
+      scriptPubKey.add(Opcode.OP_HASH160);
+      scriptPubKey.add(program);
+      scriptPubKey.add(Opcode.OP_EQUALVERIFY);
+      scriptPubKey.add(Opcode.OP_CHECKSIG);
+
+      stack = witness;
+
+    } else {
+      this.errstr = 'SCRIPT_ERR_WITNESS_PROGRAM_WRONG_LENGTH';
+      return false;
+    }
+  } else if ((flags & Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM)) {
+    this.errstr = 'SCRIPT_ERR_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM';
+    return false;
+  } else {
+    return true;
+  }
+
+  this.initialize();
+
+  this.set({
+    script: scriptPubKey,
+    stack: stack,
+    sigversion: 1,
+    satoshis: satoshis,
+    flags: flags,
+  });
+
+  if (!this.evaluate()) {
+    return false;
+  }
+
+  if (this.stack.length !== 1) {
+    this.errstr = 'SCRIPT_ERR_EVAL_FALSE';
+    return false;
+  }
+
+  var buf = this.stack[this.stack.length - 1];
+  if (!Interpreter.castToBool(buf)) {
+    this.errstr = 'SCRIPT_ERR_EVAL_FALSE_IN_STACK';
+    return false;
+  }
+
+  return true;
+};
+
+
+
 /**
  * Verifies a Script by executing it and returns true if it is valid.
  * This function needs to be provided with the scriptSig and the scriptPubkey
@@ -43,13 +117,14 @@ var Interpreter = function Interpreter(obj) {
  *    to check signature validity for some opcodes like OP_CHECKSIG)
  * @param {number} nin - index of the transaction input containing the scriptSig verified.
  * @param {number} flags - evaluation flags. See Interpreter.SCRIPT_* constants
- * @param {number} satoshisBN - amount in satoshis of the input to be verified (when FORKID signhash is used)
+ * @param {number} witness - array of witness data
+ * @param {number} satoshis - number of satoshis created by this output
  *
  * Translated from bitcoind's VerifyScript
  */
-Interpreter.prototype.verify = function(scriptSig, scriptPubkey, tx, nin, flags, satoshisBN) {
-  var Transaction = require('../transaction');
+Interpreter.prototype.verify = function(scriptSig, scriptPubkey, tx, nin, flags, witness, satoshis) {
 
+  var Transaction = require('../transaction');
   if (_.isUndefined(tx)) {
     tx = new Transaction();
   }
@@ -59,23 +134,20 @@ Interpreter.prototype.verify = function(scriptSig, scriptPubkey, tx, nin, flags,
   if (_.isUndefined(flags)) {
     flags = 0;
   }
-
-  // If FORKID is enabled, we also ensure strict encoding.
-  if (flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID) {
-    flags |= Interpreter.SCRIPT_VERIFY_STRICTENC;
-
-    // If FORKID is enabled, we need the input amount.
-    if (!satoshisBN) {
-      throw new Error('internal error - need satoshisBN to verify FORKID transactions');
-    }
+  if (_.isUndefined(witness)) {
+    witness = null;
+  }
+  if (_.isUndefined(satoshis)) {
+    satoshis = 0;
   }
 
   this.set({
     script: scriptSig,
     tx: tx,
     nin: nin,
-    flags: flags,
-    satoshisBN: satoshisBN,
+    sigversion: 0,
+    satoshis: 0,
+    flags: flags
   });
   var stackCopy;
 
@@ -100,8 +172,7 @@ Interpreter.prototype.verify = function(scriptSig, scriptPubkey, tx, nin, flags,
     stack: stack,
     tx: tx,
     nin: nin,
-    flags: flags,
-    satoshisBN: satoshisBN,
+    flags: flags
   });
 
   // evaluate scriptPubkey
@@ -118,6 +189,20 @@ Interpreter.prototype.verify = function(scriptSig, scriptPubkey, tx, nin, flags,
   if (!Interpreter.castToBool(buf)) {
     this.errstr = 'SCRIPT_ERR_EVAL_FALSE_IN_STACK';
     return false;
+  }
+
+  var hadWitness = false;
+  if ((flags & Interpreter.SCRIPT_VERIFY_WITNESS)) {
+    var witnessValues = {};
+    if (scriptPubkey.isWitnessProgram(witnessValues)) {
+      hadWitness = true;
+      if (scriptSig.toBuffer().length !== 0) {
+        return false;
+      }
+      if (!this.verifyWitnessProgram(witnessValues.version, witnessValues.program, witness, satoshis, this.flags)) {
+        return false;
+      }
+    }
   }
 
   // Additional validation for spend-to-script-hash transactions:
@@ -145,8 +230,7 @@ Interpreter.prototype.verify = function(scriptSig, scriptPubkey, tx, nin, flags,
       stack: stackCopy,
       tx: tx,
       nin: nin,
-      flags: flags,
-      satoshisBN: satoshisBN,
+      flags: flags
     });
 
     // evaluate redeemScript
@@ -162,20 +246,38 @@ Interpreter.prototype.verify = function(scriptSig, scriptPubkey, tx, nin, flags,
     if (!Interpreter.castToBool(stackCopy[stackCopy.length - 1])) {
       this.errstr = 'SCRIPT_ERR_EVAL_FALSE_IN_P2SH_STACK';
       return false;
-    } 
+    }
+    if ((flags & Interpreter.SCRIPT_VERIFY_WITNESS)) {
+      var p2shWitnessValues = {};
+      if (redeemScript.isWitnessProgram(p2shWitnessValues)) {
+        hadWitness = true;
+        var redeemScriptPush = new Script();
+        redeemScriptPush.add(redeemScript.toBuffer());
+        if (scriptSig.toHex() !== redeemScriptPush.toHex()) {
+          this.errstr = 'SCRIPT_ERR_WITNESS_MALLEATED_P2SH';
+          return false;
+        }
+
+        if (!this.verifyWitnessProgram(p2shWitnessValues.version, p2shWitnessValues.program, witness, satoshis, this.flags)) {
+          return false;
+        }
+        // Bypass the cleanstack check at the end. The actual stack is obviously not clean
+        // for witness programs.
+        stack = [stack[0]];
+      }
+    }
   }
 
   // The CLEANSTACK check is only performed after potential P2SH evaluation,
   // as the non-P2SH evaluation of a P2SH script will obviously not result in
   // a clean stack (the P2SH inputs remain). The same holds for witness
   // evaluation.
-  if ((flags & Interpreter.SCRIPT_VERIFY_CLEANSTACK) != 0) {
+  if ((this.flags & Interpreter.SCRIPT_VERIFY_CLEANSTACK) != 0) {
       // Disallow CLEANSTACK without P2SH, as otherwise a switch
       // CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
       // softfork (and P2SH should be one).
-      if ((flags & Interpreter.SCRIPT_VERIFY_P2SH) == 0) {
-        throw new Error('internal error - CLEANSTACK without P2SH');
-      }
+      if ((this.flags & Interpreter.SCRIPT_VERIFY_P2SH) == 0)
+        throw 'flags & SCRIPT_VERIFY_P2SH';
 
       if (stackCopy.length != 1) {
         this.errstr = 'SCRIPT_ERR_CLEANSTACK';
@@ -183,7 +285,12 @@ Interpreter.prototype.verify = function(scriptSig, scriptPubkey, tx, nin, flags,
       }
   }
 
- 
+  if ((this.flags & Interpreter.SCRIPT_VERIFY_WITNESS)) {
+    if (!hadWitness && witness.length > 0) {
+      this.errstr = 'SCRIPT_ERR_WITNESS_UNEXPECTED';
+      return false;
+    }
+  }
 
   return true;
 };
@@ -194,6 +301,8 @@ Interpreter.prototype.initialize = function(obj) {
   this.stack = [];
   this.altstack = [];
   this.pc = 0;
+  this.satoshis = 0;
+  this.sigversion = 0;
   this.pbegincodehash = 0;
   this.nOpCount = 0;
   this.vfExec = [];
@@ -205,11 +314,12 @@ Interpreter.prototype.set = function(obj) {
   this.script = obj.script || this.script;
   this.tx = obj.tx || this.tx;
   this.nin = typeof obj.nin !== 'undefined' ? obj.nin : this.nin;
-  this.satoshisBN = obj.satoshisBN || this.satoshisBN;
   this.stack = obj.stack || this.stack;
   this.altstack = obj.altack || this.altstack;
   this.pc = typeof obj.pc !== 'undefined' ? obj.pc : this.pc;
   this.pbegincodehash = typeof obj.pbegincodehash !== 'undefined' ? obj.pbegincodehash : this.pbegincodehash;
+  this.sigversion = typeof obj.sigversion !== 'undefined' ? obj.sigversion : this.sigversion;
+  this.satoshis = typeof obj.satoshis !== 'undefined' ? obj.satoshis : this.satoshis;
   this.nOpCount = typeof obj.nOpCount !== 'undefined' ? obj.nOpCount : this.nOpCount;
   this.vfExec = obj.vfExec || this.vfExec;
   this.errstr = obj.errstr || this.errstr;
@@ -220,7 +330,6 @@ Interpreter.true = Buffer.from([1]);
 Interpreter.false = Buffer.from([]);
 
 Interpreter.MAX_SCRIPT_ELEMENT_SIZE = 520;
-Interpreter.MAXIMUM_ELEMENT_SIZE = 4;
 
 Interpreter.LOCKTIME_THRESHOLD = 500000000;
 Interpreter.LOCKTIME_THRESHOLD_BN = new BN(Interpreter.LOCKTIME_THRESHOLD);
@@ -228,6 +337,9 @@ Interpreter.LOCKTIME_THRESHOLD_BN = new BN(Interpreter.LOCKTIME_THRESHOLD);
 // flags taken from bitcoind
 // bitcoind commit: b5d1b1092998bc95313856d535c632ea5a8f9104
 Interpreter.SCRIPT_VERIFY_NONE = 0;
+
+// Making v1-v16 witness program non-standard
+Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM = (1 << 12);
 
 // Evaluate P2SH subscripts (softfork safe, BIP16).
 Interpreter.SCRIPT_VERIFY_P2SH = (1 << 0);
@@ -271,30 +383,36 @@ Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS = (1 << 7);
 // Require that only a single stack element remains after evaluation. This
 // changes the success criterion from "At least one stack element must
 // remain, and when interpreted as a boolean, it must be true" to "Exactly
-// one stack element must remain, and when interpreted as a boolean, it must // be true".
+// one stack element must remain, and when interpreted as a boolean, it must
+// be true".
 // (softfork safe, BIP62 rule 6)
 // Note: CLEANSTACK should never be used without P2SH or WITNESS.
 Interpreter.SCRIPT_VERIFY_CLEANSTACK = (1 << 8),
 
 // CLTV See BIP65 for details.
 Interpreter.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY = (1 << 9);
+Interpreter.SCRIPT_VERIFY_WITNESS = (1 << 10);
+Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS = (1 << 11);
 
 // support CHECKSEQUENCEVERIFY opcode
 //
 // See BIP112 for details
 Interpreter.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY = (1 << 10);
 
+//
 // Segwit script only: Require the argument of OP_IF/NOTIF to be exactly
 // 0x01 or empty vector
 //
 Interpreter.SCRIPT_VERIFY_MINIMALIF = (1 << 13);
+
 
 // Signature(s) must be empty vector if an CHECK(MULTI)SIG operation failed
 //
 Interpreter.SCRIPT_VERIFY_NULLFAIL = (1 << 14);
 
 // Public keys in scripts must be compressed
-Interpreter.SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE = (1 << 15);
+//
+Interpreter.SCRIPT_VERIFY_WITNESS_PUBKEYTYPE = (1 << 15);
 
 // Do we accept signature using SIGHASH_FORKID
 //
@@ -306,8 +424,7 @@ Interpreter.SCRIPT_ENABLE_REPLAY_PROTECTION = (1 << 17);
 
 // Enable new opcodes.
 //
-Interpreter.SCRIPT_ENABLE_CHECKDATASIG = (1 << 18),
-
+Interpreter.SCRIPT_ENABLE_MONOLITH_OPCODES = (1 << 18);
 
 
 
@@ -348,11 +465,16 @@ Interpreter.castToBool = function(buf) {
 /**
  * Translated from bitcoind's CheckSignatureEncoding
  */
-Interpreter.prototype.checkRawSignatureEncoding = function(buf) {
+Interpreter.prototype.checkSignatureEncoding = function(buf) {
   var sig;
 
-  if ((this.flags & (Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_LOW_S | Interpreter.SCRIPT_VERIFY_STRICTENC)) !== 0 && !Signature.isDER(buf)) {
+    // Empty signature. Not strictly DER encoded, but allowed to provide a
+    // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
+    if (buf.length == 0) {
+        return true;
+    }
 
+  if ((this.flags & (Interpreter.SCRIPT_VERIFY_DERSIG | Interpreter.SCRIPT_VERIFY_LOW_S | Interpreter.SCRIPT_VERIFY_STRICTENC)) !== 0 && !Signature.isTxDER(buf)) {
     this.errstr = 'SCRIPT_ERR_SIG_DER_INVALID_FORMAT';
     return false;
   } else if ((this.flags & Interpreter.SCRIPT_VERIFY_LOW_S) !== 0) {
@@ -361,60 +483,16 @@ Interpreter.prototype.checkRawSignatureEncoding = function(buf) {
       this.errstr = 'SCRIPT_ERR_SIG_DER_HIGH_S';
       return false;
     }
-  } 
- 
-  return true;
-};
-
-
-// Back compat
-Interpreter.prototype.checkSignatureEncoding = 
-Interpreter.prototype.checkTxSignatureEncoding = function(buf) {
-
-    // Empty signature. Not strictly DER encoded, but allowed to provide a
-    // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
-    if (buf.length == 0) {
-        return true;
-    }
-
-    if (!this.checkRawSignatureEncoding(buf.slice(0,buf.length-1))) {
+  } else if ((this.flags & Interpreter.SCRIPT_VERIFY_STRICTENC) !== 0) {
+    sig = Signature.fromTxFormat(buf);
+    if (!sig.hasDefinedHashtype()) {
+      this.errstr = 'SCRIPT_ERR_SIG_HASHTYPE';
       return false;
     }
- 
-    if ((this.flags & Interpreter.SCRIPT_VERIFY_STRICTENC) !== 0) {
-      var sig = Signature.fromTxFormat(buf);
-      if (!sig.hasDefinedHashtype()) {
-        this.errstr = 'SCRIPT_ERR_SIG_HASHTYPE';
-        return false;
-      }
-      if (!(this.flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID) &&
-        (sig.nhashtype & Signature.SIGHASH_FORKID)) {
-        this.errstr = 'SCRIPT_ERR_ILLEGAL_FORKID';
-        return false;
-      }
+  }
 
-      if ( (this.flags & Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID) &&
-        !(sig.nhashtype & Signature.SIGHASH_FORKID)) {
-        this.errstr = 'SCRIPT_ERR_MUST_USE_FORKID';
-        return false;
-      }
-    }
-
-    return true;
+  return true;
 };
-
-Interpreter.prototype.checkDataSignatureEncoding = function(buf) {
-    // Empty signature. Not strictly DER encoded, but allowed to provide a
-    // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
-    if (buf.length == 0) {
-        return true;
-    }
-
-    return this.checkRawSignatureEncoding(buf);
-};
-
-
-
 
 /**
  * Translated from bitcoind's CheckPubKeyEncoding
@@ -424,95 +502,15 @@ Interpreter.prototype.checkPubkeyEncoding = function(buf) {
     this.errstr = 'SCRIPT_ERR_PUBKEYTYPE';
     return false;
   }
-  return true;
-};
 
-
-
-/**
-  *
-  * Check the buffer is minimally encoded (see https://github.com/bitcoincashorg/spec/blob/master/may-2018-reenabled-opcodes.md#op_bin2num)
-  *
-  *
-  */
-
-Interpreter._isMinimallyEncoded = function(buf, nMaxNumSize) {
-  nMaxNumSize = nMaxNumSize || Interpreter.MAXIMUM_ELEMENT_SIZE;
-  if (buf.length >  nMaxNumSize ) {
-      return false;
+  // Only compressed keys are accepted in segwit
+  if ((this.flags & Interpreter.SCRIPT_VERIFY_WITNESS_PUBKEYTYPE) != 0 && this.sigversion == 1 && !PublicKey.fromBuffer(buf).compressed) {
+    this.errstr = 'SCRIPT_ERR_WITNESS_PUBKEYTYPE';
+    return false;
   }
 
-  if (buf.length > 0) {
-      // Check that the number is encoded with the minimum possible number
-      // of bytes.
-      //
-      // If the most-significant-byte - excluding the sign bit - is zero
-      // then we're not minimal. Note how this test also rejects the
-      // negative-zero encoding, 0x80.
-      if ((buf[buf.length-1] & 0x7f) == 0) {
-          // One exception: if there's more than one byte and the most
-          // significant bit of the second-most-significant-byte is set it
-          // would conflict with the sign bit. An example of this case is
-          // +-255, which encode to 0xff00 and 0xff80 respectively.
-          // (big-endian).
-          if (buf.length <= 1 || (buf[buf.length - 2] & 0x80) == 0) {
-              return false;
-          }
-      }
-  }
   return true;
 };
-
-/**
-  *
-  * minimally encode the buffer content
-  *
-  * @param {number} nMaxNumSize (max allowed size)
-  */
-Interpreter._minimallyEncode = function(buf) {
-    if (buf.length == 0) {
-        return buf;
-    }
-
-    // If the last byte is not 0x00 or 0x80, we are minimally encoded.
-    var last = buf[buf.length - 1];
-    if (last & 0x7f) {
-        return buf;
-    }
-
-    // If the script is one byte long, then we have a zero, which encodes as an
-    // empty array.
-    if (buf.length == 1) {
-      return Buffer.from('');
-    }
-
-    // If the next byte has it sign bit set, then we are minimaly encoded.
-    if (buf[buf.length - 2] & 0x80) {
-        return buf;
-    }
-
-    // We are not minimally encoded, we need to figure out how much to trim.
-    for (var i = buf.length - 1; i > 0; i--) {
-        // We found a non zero byte, time to encode.
-        if (buf[i - 1] != 0) {
-            if (buf[i - 1] & 0x80) {
-                // We found a byte with it sign bit set so we need one more
-                // byte.
-                buf[i++] = last;
-            } else {
-                // the sign bit is clear, we can use it.
-                buf[i - 1] |= last;
-            }
-
-            return buf.slice(0,i);
-        }
-    }
-
-    // If we the whole thing is zeros, then we have a zero.
-    return Buffer.from('');
-}
-
-
 
 /**
  * Based on bitcoind's EvalScript function, with the inner loop moved to
@@ -661,50 +659,11 @@ Interpreter.prototype.checkSequence = function(nSequence) {
  * bitcoind commit: b5d1b1092998bc95313856d535c632ea5a8f9104
  */
 Interpreter.prototype.step = function() {
-  var self = this;
-
-  function stacktop(i) {
-    return self.stack[self.stack.length +i];
-  }
-
-  function isOpcodeDisabled(opcode) {
-    switch (opcode) {
-      case Opcode.OP_INVERT:
-      case Opcode.OP_2MUL:
-      case Opcode.OP_2DIV:
-      case Opcode.OP_MUL:
-      case Opcode.OP_LSHIFT:
-      case Opcode.OP_RSHIFT:
-
-
-
-        // Disabled opcodes.
-        return true;
-
-      case Opcode.OP_DIV:
-      case Opcode.OP_MOD:
-      case Opcode.OP_SPLIT:
-      case Opcode.OP_CAT:
-      case Opcode.OP_AND:
-      case Opcode.OP_OR:
-      case Opcode.OP_XOR:
-      case Opcode.OP_BIN2NUM:
-      case Opcode.OP_NUM2BIN:
-        // Opcodes that have been reenabled and do not need any flag as for Nov 14,2018
-        return false;
-
-      default:
-        break;
-    }
-
-    return false;
-  }
-
   var fRequireMinimal = (this.flags & Interpreter.SCRIPT_VERIFY_MINIMALDATA) !== 0;
 
   //bool fExec = !count(vfExec.begin(), vfExec.end(), false);
   var fExec = (this.vfExec.indexOf(false) === -1);
-  var buf, buf1, buf2, spliced, n, x1, x2, bn, bn1, bn2, bufSig, bufPubkey, bufMessage, subscript;
+  var buf, buf1, buf2, spliced, n, x1, x2, bn, bn1, bn2, bufSig, bufPubkey, subscript;
   var sig, pubkey;
   var fValue, fSuccess;
 
@@ -727,7 +686,22 @@ Interpreter.prototype.step = function() {
     return false;
   }
 
-  if (isOpcodeDisabled(opcodenum)) {
+
+  if (opcodenum === Opcode.OP_CAT ||
+    opcodenum === Opcode.OP_SUBSTR ||
+    opcodenum === Opcode.OP_LEFT ||
+    opcodenum === Opcode.OP_RIGHT ||
+    opcodenum === Opcode.OP_INVERT ||
+    opcodenum === Opcode.OP_AND ||
+    opcodenum === Opcode.OP_OR ||
+    opcodenum === Opcode.OP_XOR ||
+    opcodenum === Opcode.OP_2MUL ||
+    opcodenum === Opcode.OP_2DIV ||
+    opcodenum === Opcode.OP_MUL ||
+    opcodenum === Opcode.OP_DIV ||
+    opcodenum === Opcode.OP_MOD ||
+    opcodenum === Opcode.OP_LSHIFT ||
+    opcodenum === Opcode.OP_RSHIFT) {
     this.errstr = 'SCRIPT_ERR_DISABLED_OPCODE';
     return false;
   }
@@ -852,7 +826,7 @@ Interpreter.prototype.step = function() {
         // integer field. See the comment in CHECKLOCKTIMEVERIFY
         // regarding 5-byte numeric operands.
 
-        var nSequence = BN.fromScriptNumBuffer(stacktop(-1), fRequireMinimal, 5);
+        var nSequence = BN.fromScriptNumBuffer(this.stack[this.stack.length - 1], fRequireMinimal, 5);
 
 
         // In the rare event that the argument may be < 0 due to
@@ -907,9 +881,11 @@ Interpreter.prototype.step = function() {
               this.errstr = 'SCRIPT_ERR_UNBALANCED_CONDITIONAL';
               return false;
             }
-            buf = stacktop(-1);
+
+            buf = this.stack[this.stack.length - 1];
 
             if (this.flags & Interpreter.SCRIPT_VERIFY_MINIMALIF) {
+              buf = this.stack[this.stack.length - 1];
               if (buf.length > 1) {
                 this.errstr = 'SCRIPT_ERR_MINIMALIF';
                 return false;
@@ -957,7 +933,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf = stacktop(-1);
+          buf = this.stack[this.stack.length - 1];
           fValue = Interpreter.castToBool(buf);
           if (fValue) {
             this.stack.pop();
@@ -1018,8 +994,8 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf1 = stacktop(-2);
-          buf2 = stacktop(-1);
+          buf1 = this.stack[this.stack.length - 2];
+          buf2 = this.stack[this.stack.length - 1];
           this.stack.push(buf1);
           this.stack.push(buf2);
         }
@@ -1032,9 +1008,9 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf1 = stacktop(-3);
-          buf2 = stacktop(-2);
-          var buf3 = stacktop(-1);
+          buf1 = this.stack[this.stack.length - 3];
+          buf2 = this.stack[this.stack.length - 2];
+          var buf3 = this.stack[this.stack.length - 1];
           this.stack.push(buf1);
           this.stack.push(buf2);
           this.stack.push(buf3);
@@ -1048,8 +1024,8 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf1 = stacktop(-4);
-          buf2 = stacktop(-3);
+          buf1 = this.stack[this.stack.length - 4];
+          buf2 = this.stack[this.stack.length - 3];
           this.stack.push(buf1);
           this.stack.push(buf2);
         }
@@ -1088,7 +1064,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf = stacktop(-1);
+          buf = this.stack[this.stack.length - 1];
           fValue = Interpreter.castToBool(buf);
           if (fValue) {
             this.stack.push(buf);
@@ -1122,7 +1098,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          this.stack.push(stacktop(-1));
+          this.stack.push(this.stack[this.stack.length - 1]);
         }
         break;
 
@@ -1144,7 +1120,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          this.stack.push(stacktop(-2));
+          this.stack.push(this.stack[this.stack.length - 2]);
         }
         break;
 
@@ -1157,7 +1133,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf = stacktop(-1);
+          buf = this.stack[this.stack.length - 1];
           bn = BN.fromScriptNumBuffer(buf, fRequireMinimal);
           n = bn.toNumber();
           this.stack.pop();
@@ -1165,7 +1141,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf =  stacktop(-n-1);
+          buf = this.stack[this.stack.length - n - 1];
           if (opcodenum === Opcode.OP_ROLL) {
             this.stack.splice(this.stack.length - n - 1, 1);
           }
@@ -1182,9 +1158,9 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          x1 = stacktop(-3);
-          x2 = stacktop(-2);
-          var x3 = stacktop(-1);
+          x1 = this.stack[this.stack.length - 3];
+          x2 = this.stack[this.stack.length - 2];
+          var x3 = this.stack[this.stack.length - 1];
           this.stack[this.stack.length - 3] = x2;
           this.stack[this.stack.length - 2] = x3;
           this.stack[this.stack.length - 1] = x1;
@@ -1198,8 +1174,8 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          x1 = stacktop(-2);
-          x2 = stacktop(-1);
+          x1 = this.stack[this.stack.length - 2];
+          x2 = this.stack[this.stack.length - 1];
           this.stack[this.stack.length - 2] = x2;
           this.stack[this.stack.length - 1] = x1;
         }
@@ -1212,7 +1188,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          this.stack.splice(this.stack.length - 2, 0, stacktop(-1));
+          this.stack.splice(this.stack.length - 2, 0, this.stack[this.stack.length - 1]);
         }
         break;
 
@@ -1224,58 +1200,15 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          bn = new BN(stacktop(-1).length);
+          bn = new BN(this.stack[this.stack.length - 1].length);
           this.stack.push(bn.toScriptNumBuffer());
         }
         break;
 
-      //
-      // Bitwise logic
-      //
-      case Opcode.OP_AND:
-      case Opcode.OP_OR:
-      case Opcode.OP_XOR: 
-        {
-          // (x1 x2 - out)
-          if (this.stack.length < 2) {
-            this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-            return false;
-          }
-          buf1 = stacktop(-2);
-          buf2 = stacktop(-1);
 
-          // Inputs must be the same size
-          if (buf1.length !== buf2.length) {
-            this.errstr = 'SCRIPT_ERR_INVALID_OPERAND_SIZE';
-            return false;
-          }
-
-          // To avoid allocating, we modify vch1 in place.
-          switch (opcodenum) {
-            case Opcode.OP_AND:
-              for (var i = 0; i < buf1.length; i++) {
-                buf1[i] &= buf2[i];
-              }
-              break;
-            case Opcode.OP_OR:
-              for (var i = 0; i < buf1.length; i++) {
-                buf1[i] |= buf2[i];
-              }
-              break;
-            case Opcode.OP_XOR:
-              for (var i = 0; i < buf1.length; i++) {
-                buf1[i] ^= buf2[i];
-              }
-              break;
-            default:
-              break;
-          }
-
-          // And pop vch2.
-          this.stack.pop()
-        } 
-        break;
-
+        //
+        // Bitwise logic
+        //
       case Opcode.OP_EQUAL:
       case Opcode.OP_EQUALVERIFY:
         //case Opcode.OP_NOTEQUAL: // use Opcode.OP_NUMNOTEQUAL
@@ -1285,8 +1218,8 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf1 = stacktop(-2);
-          buf2 = stacktop(-1);
+          buf1 = this.stack[this.stack.length - 2];
+          buf2 = this.stack[this.stack.length - 1];
           var fEqual = buf1.toString('hex') === buf2.toString('hex');
           this.stack.pop();
           this.stack.pop();
@@ -1318,7 +1251,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf = stacktop(-1);
+          buf = this.stack[this.stack.length - 1];
           bn = BN.fromScriptNumBuffer(buf, fRequireMinimal);
           switch (opcodenum) {
             case Opcode.OP_1ADD:
@@ -1350,8 +1283,6 @@ Interpreter.prototype.step = function() {
 
       case Opcode.OP_ADD:
       case Opcode.OP_SUB:
-      case Opcode.OP_MOD:
-      case Opcode.OP_DIV:
       case Opcode.OP_BOOLAND:
       case Opcode.OP_BOOLOR:
       case Opcode.OP_NUMEQUAL:
@@ -1369,8 +1300,8 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          bn1 = BN.fromScriptNumBuffer(stacktop(-2), fRequireMinimal);
-          bn2 = BN.fromScriptNumBuffer(stacktop(-1), fRequireMinimal);
+          bn1 = BN.fromScriptNumBuffer(this.stack[this.stack.length - 2], fRequireMinimal);
+          bn2 = BN.fromScriptNumBuffer(this.stack[this.stack.length - 1], fRequireMinimal);
           bn = new BN(0);
 
           switch (opcodenum) {
@@ -1382,24 +1313,7 @@ Interpreter.prototype.step = function() {
               bn = bn1.sub(bn2);
               break;
 
-            case Opcode.OP_DIV:
-              // denominator must not be 0
-              if (bn2 == 0) {
-                this.errstr = 'SCRIPT_ERR_DIV_BY_ZERO';
-                return false;
-              }
-              bn = bn1.div(bn2);
-              break;
-
-            case Opcode.OP_MOD:
-              // divisor must not be 0
-              if (bn2 == 0) {
-                this.errstr = 'SCRIPT_ERR_DIV_BY_ZERO';
-                return false;
-              }
-              bn = bn1.mod(bn2);
-              break;
-
+              // case Opcode.OP_BOOLAND:       bn = (bn1 != bnZero && bn2 != bnZero); break;
             case Opcode.OP_BOOLAND:
               bn = new BN(((bn1.cmp(BN.Zero) !== 0) && (bn2.cmp(BN.Zero) !== 0)) + 0);
               break;
@@ -1449,7 +1363,7 @@ Interpreter.prototype.step = function() {
 
           if (opcodenum === Opcode.OP_NUMEQUALVERIFY) {
             // if (CastToBool(stacktop(-1)))
-            if (Interpreter.castToBool(stacktop(-1))) {
+            if (Interpreter.castToBool(this.stack[this.stack.length - 1])) {
               this.stack.pop();
             } else {
               this.errstr = 'SCRIPT_ERR_NUMEQUALVERIFY';
@@ -1466,9 +1380,9 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          bn1 = BN.fromScriptNumBuffer(stacktop(-3), fRequireMinimal);
-          bn2 = BN.fromScriptNumBuffer(stacktop(-2), fRequireMinimal);
-          var bn3 = BN.fromScriptNumBuffer(stacktop(-1), fRequireMinimal);
+          bn1 = BN.fromScriptNumBuffer(this.stack[this.stack.length - 3], fRequireMinimal);
+          bn2 = BN.fromScriptNumBuffer(this.stack[this.stack.length - 2], fRequireMinimal);
+          var bn3 = BN.fromScriptNumBuffer(this.stack[this.stack.length - 1], fRequireMinimal);
           //bool fValue = (bn2 <= bn1 && bn1 < bn3);
           fValue = (bn2.cmp(bn1) <= 0) && (bn1.cmp(bn3) < 0);
           this.stack.pop();
@@ -1493,7 +1407,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          buf = stacktop(-1);
+          buf = this.stack[this.stack.length - 1];
           //valtype vchHash((opcode == Opcode.OP_RIPEMD160 ||
           //                 opcode == Opcode.OP_SHA1 || opcode == Opcode.OP_HASH160) ? 20 : 32);
           var bufHash;
@@ -1529,11 +1443,9 @@ Interpreter.prototype.step = function() {
             return false;
           }
 
-          bufSig = stacktop(-2);
-          bufPubkey = stacktop(-1);
-
-          if (!this.checkTxSignatureEncoding(bufSig) || !this.checkPubkeyEncoding(bufPubkey)) {
-
+          bufSig = this.stack[this.stack.length - 2];
+          bufPubkey = this.stack[this.stack.length - 1];
+          if (!this.checkSignatureEncoding(bufSig) || !this.checkPubkeyEncoding(bufPubkey)) {
             return false;
           }
 
@@ -1550,8 +1462,7 @@ Interpreter.prototype.step = function() {
           try {
             sig = Signature.fromTxFormat(bufSig);
             pubkey = PublicKey.fromBuffer(bufPubkey, false);
-
-            fSuccess = this.tx.verifySignature(sig, pubkey, this.nin, subscript, this.satoshisBN, this.flags);
+            fSuccess = this.tx.verifySignature(sig, pubkey, this.nin, subscript, this.sigversion, this.satoshis);
           } catch (e) {
             //invalid sig or pubkey
             fSuccess = false;
@@ -1579,67 +1490,6 @@ Interpreter.prototype.step = function() {
         }
         break;
 
-      case Opcode.OP_CHECKDATASIG:
-      case Opcode.OP_CHECKDATASIGVERIFY: 
-        {
-
-          // Make sure this remains an error before activation.
-          if ((this.flags & Interpreter.SCRIPT_ENABLE_CHECKDATASIG) == 0) {
-            this.errstr = 'SCRIPT_ERR_CHECKDATASIG';
-            return false;
-          }
-
-
-          // (sig message pubkey -- bool)
-          if (this.stack.length < 3) {
-            this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-            return false;
-          }
-
-          bufSig = stacktop(-3);
-          bufMessage = stacktop(-2);
-          bufPubkey = stacktop(-1);
-
-          if (!this.checkDataSignatureEncoding(bufSig) || !this.checkPubkeyEncoding(bufPubkey)) {
-            return false;
-          }
-
-          fSuccess = false;
-
-
-          try {
-            sig = Signature.fromDataFormat(bufSig);
-            pubkey = PublicKey.fromBuffer(bufPubkey, false);
-            bufHash = Hash.sha256(bufMessage);
-            fSuccess = ECDSA.verify(bufHash, sig, pubkey, 'big');
-          } catch (e) {
-            //invalid sig or pubkey
-            fSuccess = false;
-          }
-
-          if (!fSuccess && (this.flags & Interpreter.SCRIPT_VERIFY_NULLFAIL) &&
-            bufSig.length) {
-            this.errstr = 'SCRIPT_ERR_NULLFAIL';
-            return false;
-          }
-
-          this.stack.pop();
-          this.stack.pop();
-          this.stack.pop();
-
-          this.stack.push(fSuccess ? Interpreter.true : Interpreter.false);
-          if (opcodenum === Opcode.OP_CHECKDATASIGVERIFY) {
-            if (fSuccess) {
-              this.stack.pop();
-            } else {
-              this.errstr = 'SCRIPT_ERR_CHECKDATASIGVERIFY';
-              return false;
-            }
-          }
-
-        }
-        break;
-
       case Opcode.OP_CHECKMULTISIG:
       case Opcode.OP_CHECKMULTISIGVERIFY:
         {
@@ -1651,7 +1501,7 @@ Interpreter.prototype.step = function() {
             return false;
           }
 
-          var nKeysCount = BN.fromScriptNumBuffer(stacktop(-i), fRequireMinimal).toNumber();
+          var nKeysCount = BN.fromScriptNumBuffer(this.stack[this.stack.length - i], fRequireMinimal).toNumber();
           if (nKeysCount < 0 || nKeysCount > 20) {
             this.errstr = 'SCRIPT_ERR_PUBKEY_COUNT';
             return false;
@@ -1676,7 +1526,7 @@ Interpreter.prototype.step = function() {
             return false;
           }
 
-          var nSigsCount = BN.fromScriptNumBuffer(stacktop(-i), fRequireMinimal).toNumber();
+          var nSigsCount = BN.fromScriptNumBuffer(this.stack[this.stack.length - i], fRequireMinimal).toNumber();
           if (nSigsCount < 0 || nSigsCount > nKeysCount) {
             this.errstr = 'SCRIPT_ERR_SIG_COUNT';
             return false;
@@ -1696,19 +1546,18 @@ Interpreter.prototype.step = function() {
 
           // Drop the signatures, since there's no way for a signature to sign itself
           for (var k = 0; k < nSigsCount; k++) {
-            bufSig = stacktop(-isig-k);
+            bufSig = this.stack[this.stack.length - isig - k];
             subscript.findAndDelete(new Script().add(bufSig));
           }
 
           fSuccess = true;
           while (fSuccess && nSigsCount > 0) {
             // valtype& vchSig  = stacktop(-isig);
-            bufSig = stacktop(-isig);
+            bufSig = this.stack[this.stack.length - isig];
             // valtype& vchPubKey = stacktop(-ikey);
-            bufPubkey = stacktop(-ikey);
+            bufPubkey = this.stack[this.stack.length - ikey];
 
-            if (!this.checkTxSignatureEncoding(bufSig) || !this.checkPubkeyEncoding(bufPubkey)) {
-
+            if (!this.checkSignatureEncoding(bufSig) || !this.checkPubkeyEncoding(bufPubkey)) {
               return false;
             }
 
@@ -1716,7 +1565,7 @@ Interpreter.prototype.step = function() {
             try {
               sig = Signature.fromTxFormat(bufSig);
               pubkey = PublicKey.fromBuffer(bufPubkey, false);
-              fOk = this.tx.verifySignature(sig, pubkey, this.nin, subscript, this.satoshisBN, this.flags);
+              fOk = this.tx.verifySignature(sig, pubkey, this.nin, subscript, this.sigversion, this.satoshis);
             } catch (e) {
               //invalid sig or pubkey
               fOk = false;
@@ -1740,7 +1589,7 @@ Interpreter.prototype.step = function() {
           // Clean up stack of actual arguments
           while (i-- > 1) {
             if (!fSuccess && (this.flags & Interpreter.SCRIPT_VERIFY_NULLFAIL) &&
-              !ikey2 && stacktop(-1).length) {
+              !ikey2 && this.stack[this.stack.length - 1].length) {
 
               this.errstr = 'SCRIPT_ERR_NULLFAIL';
               return false;
@@ -1763,7 +1612,7 @@ Interpreter.prototype.step = function() {
             this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
             return false;
           }
-          if ((this.flags & Interpreter.SCRIPT_VERIFY_NULLDUMMY) && stacktop(-1).length) {
+          if ((this.flags & Interpreter.SCRIPT_VERIFY_NULLDUMMY) && this.stack[this.stack.length - 1].length) {
             this.errstr = 'SCRIPT_ERR_SIG_NULLDUMMY';
             return false;
           }
@@ -1781,134 +1630,6 @@ Interpreter.prototype.step = function() {
           }
         }
         break;
-
-        //
-        // Byte string operations
-        //
-        case Opcode.OP_CAT: {
-
-          if (this.stack.length < 2) {
-            this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-            return false;
-          }
-
-          buf1 = stacktop(-2);
-          buf2 = stacktop(-1);
-          if (buf1.length + buf2.length > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
-            this.errstr = 'SCRIPT_ERR_PUSH_SIZE';
-            return false;
-          }
-          this.stack[this.stack.length - 2] = Buffer.concat([buf1,buf2]);
-          this.stack.pop();
-        } 
-        break;
-
-        case Opcode.OP_SPLIT: {
-          if (this.stack.length < 2) {
-            this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-            return false;
-          }
-          buf1 = stacktop(-2);
-
-          // Make sure the split point is apropriate.
-          var position = BN.fromScriptNumBuffer(stacktop(-1), fRequireMinimal).toNumber();
-          if (position < 0 || position > buf1.length) {
-            this.errstr = 'SCRIPT_ERR_INVALID_SPLIT_RANGE';
-            return false;
-          }
-
-          // Prepare the results in their own buffer as `data`
-          // will be invalidated.
-          // Copy buffer data, to slice it before
-          var n1 = Buffer.from(buf1);
-
-          // Replace existing stack values by the new values.
-          this.stack[this.stack.length - 2] = n1.slice(0, position);
-          this.stack[this.stack.length - 1] = n1.slice(position);
-        } 
-        break;
-
-        //
-        // Conversion operations
-        //
-        case Opcode.OP_NUM2BIN: {
-
-          // (in -- out)
-          if (this.stack.length < 2) {
-            this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-            return false;
-          }
-
-          var size = BN.fromScriptNumBuffer(stacktop(-1), fRequireMinimal).toNumber();
-          if (size > Interpreter.MAX_SCRIPT_ELEMENT_SIZE) {
-            this.errstr = 'SCRIPT_ERR_PUSH_SIZE';
-            return false;
-          }
-
-          this.stack.pop();
-          var rawnum = stacktop(-1);
-
-          // Try to see if we can fit that number in the number of
-          // byte requested.
-          rawnum=Interpreter._minimallyEncode(rawnum);
-
-          if (rawnum.length > size) {
-            // We definitively cannot.
-            this.errstr = 'SCRIPT_ERR_IMPOSSIBLE_ENCODING';
-            return false;
-          }
-
-          // We already have an element of the right size, we
-          // don't need to do anything.
-          if (rawnum.length == size) {
-            this.stack[this.stack.length-1] = rawnum;
-            break;
-          }
-
-          var signbit = 0x00;
-          if (rawnum.length > 0) {
-            signbit = rawnum[rawnum.length - 1] & 0x80;
-            rawnum[rawnum.length - 1] &= 0x7f;
-          }
-
-          var num = Buffer.alloc(size);
-          rawnum.copy(num,0);
-
-          var l = rawnum.length - 1;
-          while (l++ < size - 2) {
-            num[l]=0x00;
-          }
-
-          num[l]=signbit;
-
-          this.stack[this.stack.length-1] = num;
-        } 
-        break;
-
-
-
-        case Opcode.OP_BIN2NUM: {
-          // (in -- out)
-          if (this.stack.length < 1) {
-            this.errstr = 'SCRIPT_ERR_INVALID_STACK_OPERATION';
-            return false;
-          }
-
-          buf1 = stacktop(-1);
-          buf2 = Interpreter._minimallyEncode(buf1);
-
-          this.stack[this.stack.length - 1] = buf2;
-
-          // The resulting number must be a valid number.
-          if (!Interpreter._isMinimallyEncoded(buf2)) {
-            this.errstr = 'SCRIPT_ERR_INVALID_NUMBER_RANGE';
-            return false;
-          }
-        } 
-        break;        
-
-
-
 
       default:
         this.errstr = 'SCRIPT_ERR_BAD_OPCODE';

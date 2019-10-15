@@ -4,7 +4,6 @@ var _ = require('lodash');
 var URL = require('url');
 
 var Address = require('./address');
-var Networks = require('./networks');
 var Unit = require('./unit');
 
 /**
@@ -110,15 +109,16 @@ URI.isValid = function(arg, knownParams) {
  */
 URI.parse = function(uri) {
   var info = URL.parse(uri, true);
-  if (Networks.get( info.protocol.replace(':', '') ,'prefix')) {
-    // workaround to host insensitiveness
-    var group = /[^:]*:\/?\/?([^?]*)/.exec(uri);
-    info.query.address = group && group[1] || undefined;
 
-    return info.query;
-} else {
-  throw new TypeError('Invalid bitcoin URI');
+  if (info.protocol !== 'bitcoin:') {
+    throw new TypeError('Invalid bitcoin URI');
   }
+
+  // workaround to host insensitiveness
+  var group = /[^:]*:\/?\/?([^?]*)/.exec(uri);
+  info.query.address = group && group[1] || undefined;
+
+  return info.query;
 };
 
 URI.Members = ['address', 'amount', 'message', 'label', 'r'];

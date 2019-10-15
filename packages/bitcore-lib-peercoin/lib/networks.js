@@ -34,31 +34,21 @@ function get(arg, keys) {
     if (!_.isArray(keys)) {
       keys = [keys];
     }
-    for (var i = 0; i < networks.length; i++) {
-      var network = networks[i];
-      var filteredNet = _.pick(network, keys);
-      var netValues = _.values(filteredNet);
-      if(~netValues.indexOf(arg)) {
-	return network;
+    var containsArg = function(key) {
+      return networks[index][key] === arg;
+    };
+    for (var index in networks) {
+      if (_.some(keys, containsArg)) {
+        return networks[index];
       }
     }
     return undefined;
   }
-  return networkMaps[arg];
-}
-
-/***
- * Derives an array from the given prefix to be used in the computation
- * of the address' checksum.
- *
- * @param {string} prefix Network prefix. E.g.: 'bitcoincash'.
- */
-function prefixToArray(prefix) {
-  var result = [];
-  for (var i=0; i < prefix.length; i++) {
-    result.push(prefix.charCodeAt(i) & 31);
+  if(networkMaps[arg] && networkMaps[arg].length >= 1) {
+    return networkMaps[arg][0];
+  } else {
+    return networkMaps[arg];
   }
-  return result;
 }
 
 /**
@@ -71,6 +61,7 @@ function prefixToArray(prefix) {
  * @param {Number} data.pubkeyhash - The publickey hash prefix
  * @param {Number} data.privatekey - The privatekey prefix
  * @param {Number} data.scripthash - The scripthash prefix
+ * @param {string} data.bech32prefix - The native segwit prefix
  * @param {Number} data.xpubkey - The extended public key magic
  * @param {Number} data.xprivkey - The extended private key magic
  * @param {Number} data.networkMagic - The network magic number
@@ -88,58 +79,41 @@ function addNetwork(data) {
     pubkeyhash: data.pubkeyhash,
     privatekey: data.privatekey,
     scripthash: data.scripthash,
+    bech32prefix: data.bech32prefix,
     xpubkey: data.xpubkey,
-    xprivkey: data.xprivkey,
+    xprivkey: data.xprivkey
   });
 
-  var indexBy = data.indexBy || Object.keys(data);
-
-  if (data.prefix) {
-    _.extend(network, {
-      prefix: data.prefix,
-      prefixArray: prefixToArray(data.prefix),
-    });
-  }
-
   if (data.networkMagic) {
-    _.extend(network, {
+    JSUtil.defineImmutable(network, {
       networkMagic: BufferUtil.integerAsBuffer(data.networkMagic)
     });
   }
 
   if (data.port) {
-    _.extend(network, {
+    JSUtil.defineImmutable(network, {
       port: data.port
     });
   }
 
   if (data.dnsSeeds) {
-    _.extend(network, {
+    JSUtil.defineImmutable(network, {
       dnsSeeds: data.dnsSeeds
     });
   }
+  _.each(network, function(value) {
+    if (!_.isUndefined(value) && !_.isObject(value)) {
+      if(!networkMaps[value]) {
+        networkMaps[value] = [];
+      }
+      networkMaps[value].push(network);
+    }
+  });
+
   networks.push(network);
-  indexNetworkBy(network, indexBy);
+
   return network;
-}
 
-function indexNetworkBy(network, keys) {
-  for(var i = 0; i <  keys.length; i++) {
-    var key = keys[i];
-    var networkValue = network[key];
-    if(!_.isUndefined(networkValue) && !_.isObject(networkValue)) {
-      networkMaps[networkValue] = network;
-    }
-  }
-}
-
-function unindexNetworkBy(network, values) {
-  for(var index = 0; index < values.length; index++){
-    var value = values[index];
-    if(networkMaps[value] === network) {
-      delete networkMaps[value];
-    }
-  }
 }
 
 /**
@@ -154,74 +128,77 @@ function removeNetwork(network) {
       networks.splice(i, 1);
     }
   }
-  unindexNetworkBy(network, Object.keys(networkMaps));
+  for (var key in networkMaps) {
+    const index = networkMaps[key].indexOf(network);
+    if (index >= 0) {
+      delete networkMaps[key][index];
+    }
+  }
 }
 
-var dnsSeeds = [
-  'seed.peercoin.net'
-];
-
-var dnsSeedsTestnet = [
-  'tseed.peercoin.net'
-]
-
-var liveNetwork = {
+addNetwork({
   name: 'livenet',
   alias: 'mainnet',
-  prefix: 'peercoin',
   pubkeyhash: 0x37,
   privatekey: 0xb7,
   scripthash: 0x75,
+  bech32prefix: 'pc',
   xpubkey: 0x0488b21e,
   xprivkey: 0x0488ade4,
   networkMagic: 0xe6e8e9e5,
   port: 9901,
-  dnsSeeds: dnsSeeds
-};
-
-var testNetwork = {
-  name: 'testnet',
-  prefix: 'peercointest',
-  pubkeyhash: 0x6f,
-  privatekey: 0xef,
-  scripthash: 0xc4,
-  xpubkey: 0x043587cf,
-  xprivkey: 0x04358394,
-  networkMagic: 0xcbf2c0ef,
-  port: 9903,
-  dnsSeeds: dnsSeedsTestnet
-};
-
-var regtestNetwork = {
-  name: 'regtest',
-  prefix: 'ppcreg',
-  pubkeyhash: 0x6f,
-  privatekey: 0xef,
-  scripthash: 0xc4,
-  xpubkey: 0x043587cf,
-  xprivkey: 0x04358394,
-  networkMagic: 0xcbf2c0ef,
-  port: 9903,
-  dnsSeeds: [],
-  indexBy: [
-    'port',
-    'name',
-    'prefix',
-    'networkMagic'
+  dnsSeeds: [
+    'seed.peercoin.net'
   ]
-};
+});
 
-
-// Add configurable values for testnet/regtest
-
-
-addNetwork(testNetwork);
-addNetwork(regtestNetwork);
-addNetwork(liveNetwork);
-
+/**
+ * @instance
+ * @member Networks#livenet
+ */
 var livenet = get('livenet');
-var regtest = get('regtest');
+
+addNetwork({
+  name: 'testnet',
+  alias: 'peercointest',
+  pubkeyhash: 0x6f,
+  privatekey: 0xef,
+  scripthash: 0xc4,
+  bech32prefix: 'tpc',
+  xpubkey: 0x043587cf,
+  xprivkey: 0x04358394,
+  networkMagic: 0xcbf2c0ef,
+  port: 9903,
+  dnsSeeds: [
+    'tseed.peercoin.net'
+  ]
+});
+
+/**
+ * @instance
+ * @member Networks#testnet
+ */
 var testnet = get('testnet');
+
+addNetwork({
+  name: 'regtest',
+  alias: 'ppcreg',
+  pubkeyhash: 0x6f,
+  privatekey: 0xef,
+  scripthash: 0xc4,
+  bech32prefix: 'pcrt',
+  xpubkey: 0x043587cf,
+  xprivkey: 0x04358394,
+  networkMagic: 0xcbf2c0ef,
+  port: 9903,
+  dnsSeeds: []
+});
+
+/**
+ * @instance
+ * @member Networks#testnet
+ */
+var regtest = get('regtest');
 
 /**
  * @function

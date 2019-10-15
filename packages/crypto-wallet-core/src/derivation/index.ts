@@ -1,8 +1,8 @@
 import { BchDeriver } from './bch';
 import { BtcDeriver } from './btc';
-import { PpcDeriver } from './ppc';
 import { EthDeriver } from './eth';
 import { Paths } from './paths';
+import { PpcDeriver } from './ppc';
 
 export interface Key {
   address: string;

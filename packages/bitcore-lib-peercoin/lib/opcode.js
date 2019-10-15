@@ -137,9 +137,9 @@ Opcode.map = {
 
   // splice ops
   OP_CAT: 126,
-  OP_SPLIT: 127,
-  OP_NUM2BIN: 128,
-  OP_BIN2NUM: 129,
+  OP_SUBSTR: 127,
+  OP_LEFT: 128,
+  OP_RIGHT: 129,
   OP_SIZE: 130,
 
   // bit logic
@@ -211,16 +211,7 @@ Opcode.map = {
   OP_NOP9: 184,
   OP_NOP10: 185,
 
-  // More crypto
-  OP_CHECKDATASIG: 186,
-  OP_CHECKDATASIGVERIFY: 187,
-
-  OP_PREFIX_BEGIN: 240,
-  OP_PREFIX_END: 241,
-
   // template matching params
-  OP_SMALLINTEGER: 250,
-  OP_PUBKEYS: 251,
   OP_PUBKEYHASH: 253,
   OP_PUBKEY: 254,
   OP_INVALIDOPCODE: 255

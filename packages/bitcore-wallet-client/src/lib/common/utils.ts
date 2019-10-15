@@ -14,7 +14,7 @@ var Bitcore = BitcoreLib;
 var Bitcore_ = {
   btc: Bitcore,
   bch: BitcoreLibCash,
-  ppc: BitcoreLibPeercoin
+  ppc: BitcoreLibPeercoin,
   eth: Bitcore
 };
 var PrivateKey = Bitcore.PrivateKey;

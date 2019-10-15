@@ -1,6 +1,7 @@
 'use strict';
 
 var should = require('chai').should();
+var sinon = require('sinon');
 var bitcore = require('../..');
 var Interpreter = bitcore.Script.Interpreter;
 var Transaction = bitcore.Transaction;
@@ -96,6 +97,111 @@ describe('Interpreter', function() {
 
   });
 
+  describe('#verifyWitnessProgram', function() {
+    it('will return true if witness program greater than 0', function() {
+      var si = Interpreter();
+      var version = 1;
+      var program = new Buffer('bcbd1db07ce89d1f4050645c26c90ce78b67eff78460002a4d5c10410958e064', 'hex');
+      var witness = [new Buffer('bda0eeeb166c8bfeaee88dedc8efa82d3bea35aac5be253902f59d52908bfe25', 'hex')];
+      var satoshis = 1;
+      var flags = 0;
+      si.verifyWitnessProgram(version, program, witness, satoshis, flags).should.equal(true);
+    });
+    it('will return false with error if witness length is 0', function() {
+      var si = Interpreter();
+      var version = 0;
+      var program = new Buffer('bcbd1db07ce89d1f4050645c26c90ce78b67eff78460002a4d5c10410958e064', 'hex');
+      var witness = [];
+      var satoshis = 1;
+      var flags = 0;
+      si.verifyWitnessProgram(version, program, witness, satoshis, flags).should.equal(false);
+      si.errstr.should.equal('SCRIPT_ERR_WITNESS_PROGRAM_WITNESS_EMPTY');
+    });
+    it('will return false if program hash mismatch (version 0, 32 byte program)', function() {
+      var si = Interpreter();
+      var version = 0;
+      var program = new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex');
+      var witness = [
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex')
+      ];
+      var satoshis = 1;
+      var flags = 0;
+      si.verifyWitnessProgram(version, program, witness, satoshis, flags).should.equal(false);
+      si.errstr.should.equal('SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH');
+    });
+    it('will return false if witness stack doesn\'t have two items (version 0, 20 byte program)', function() {
+      var si = Interpreter();
+      var version = 0;
+      var program = new Buffer('b8bcb07f6344b42ab04250c86a6e8b75d3fdbbc6', 'hex');
+      var witness = [
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex')
+      ];
+      var satoshis = 1;
+      var flags = 0;
+      si.verifyWitnessProgram(version, program, witness, satoshis, flags).should.equal(false);
+      si.errstr.should.equal('SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH');
+    });
+    it('will return false if program wrong length for version 0', function() {
+      var si = Interpreter();
+      var version = 0;
+      var program = new Buffer('b8bcb07f6344b42ab04250c86a6e8b75d3', 'hex');
+      var witness = [
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex')
+      ];
+      var satoshis = 1;
+      var flags = 0;
+      si.verifyWitnessProgram(version, program, witness, satoshis, flags).should.equal(false);
+      si.errstr.should.equal('SCRIPT_ERR_WITNESS_PROGRAM_WRONG_LENGTH');
+    });
+    it('will return false with discourage upgradable witness program', function() {
+      var si = Interpreter();
+      var version = 1;
+      var program = new Buffer('b8bcb07f6344b42ab04250c86a6e8b75d3fdbbc6', 'hex');
+      var witness = [
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex')
+      ];
+      var satoshis = 1;
+      var flags = Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM;
+      si.verifyWitnessProgram(version, program, witness, satoshis, flags).should.equal(false);
+      si.errstr.should.equal('SCRIPT_ERR_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM');
+    });
+    it('will return false with error if stack doesn\'t have exactly one item', function() {
+      var si = Interpreter();
+      si.evaluate = sinon.stub().returns(true);
+      var version = 0;
+      var program = new Buffer('b8bcb07f6344b42ab04250c86a6e8b75d3fdbbc6', 'hex');
+      var witness = [
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex')
+      ];
+      var satoshis = 1;
+      var flags = 0;
+      si.verifyWitnessProgram(version, program, witness, satoshis, flags).should.equal(false);
+      si.errstr.should.equal('SCRIPT_ERR_EVAL_FALSE');
+    });
+    it('will return false if last item in stack casts to false', function() {
+      var si = Interpreter();
+      si.evaluate = function() {
+        si.stack = [new Buffer('00', 'hex')];
+        return true;
+      };
+      var version = 0;
+      var program = new Buffer('b8bcb07f6344b42ab04250c86a6e8b75d3fdbbc6', 'hex');
+      var witness = [
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex'),
+        new Buffer('0000000000000000000000000000000000000000000000000000000000000000', 'hex')
+      ];
+      var satoshis = 1;
+      var flags = 0;
+      si.verifyWitnessProgram(version, program, witness, satoshis, flags).should.equal(false);
+      si.errstr.should.equal('SCRIPT_ERR_EVAL_FALSE_IN_STACK');
+    });
+  });
+
   describe('#verify', function() {
 
     it('should verify these trivial scripts', function() {
@@ -138,16 +244,15 @@ describe('Interpreter', function() {
       var tx = new Transaction()
         .from(utxo)
         .to(toAddress, 100000)
-        .sign(privateKey, 1);
+        .sign(privateKey);
 
       // we then extract the signature from the first input
       var inputIndex = 0;
-      var signature = tx.getSignatures(privateKey, 1)[inputIndex].signature;
+      var signature = tx.getSignatures(privateKey)[inputIndex].signature;
 
       var scriptSig = Script.buildPublicKeyHashIn(publicKey, signature);
       var flags = Interpreter.SCRIPT_VERIFY_P2SH | Interpreter.SCRIPT_VERIFY_STRICTENC;
       var verified = Interpreter().verify(scriptSig, scriptPubkey, tx, inputIndex, flags);
-
       verified.should.equal(true);
     });
   });
@@ -192,25 +297,25 @@ describe('Interpreter', function() {
       flags = flags | Interpreter.SCRIPT_VERIFY_NULLFAIL;
     }
 
+    if (flagstr.indexOf('WITNESS') !== -1) {
+      flags = flags | Interpreter.SCRIPT_VERIFY_WITNESS;
+    }
+
+    if (flagstr.indexOf('DISCOURAGE_UPGRADABLE_WITNESS') !== -1) {
+      flags = flags | Interpreter.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM;
+    }
+
     if (flagstr.indexOf('CLEANSTACK') !== -1) {
       flags = flags | Interpreter.SCRIPT_VERIFY_CLEANSTACK;
     }
 
-    if (flagstr.indexOf('FORKID') !== -1) {
-      flags = flags | Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID;
+    if (flagstr.indexOf('WITNESS_PUBKEYTYPE') !== -1) {
+      flags = flags | Interpreter.SCRIPT_VERIFY_WITNESS_PUBKEYTYPE;
     }
-
-    if (flagstr.indexOf('REPLAY_PROTECTION') !== -1) {
-      flags = flags | Interpreter.SCRIPT_ENABLE_REPLAY_PROTECTION;
-    }
-
-    if (flagstr.indexOf('CHECKDATASIG') !== -1) {
-      flags = flags | Interpreter.SCRIPT_ENABLE_CHECKDATASIG;
-    }
-
     if (flagstr.indexOf('MINIMALIF') !== -1) {
       flags = flags | Interpreter.SCRIPT_VERIFY_MINIMALIF;
     }
+
     return flags;
   };
 
@@ -220,14 +325,11 @@ describe('Interpreter', function() {
     Script.fromString(s).toString().should.equal(s);
   };
 
-  var testFixture = function(vector, expected, extraData) {
+  var testFixture = function(vector, expected, witness, amount) {
+    var amount = amount || 0;
     var scriptSig = Script.fromBitcoindString(vector[0]);
     var scriptPubkey = Script.fromBitcoindString(vector[1]);
     var flags = getFlags(vector[2]);
-    var inputAmount = 0;
-    if (extraData) {
-      inputAmount = extraData[0] * 1e8;
-    }
 
     var hashbuf = new Buffer(32);
     hashbuf.fill(0);
@@ -240,7 +342,7 @@ describe('Interpreter', function() {
     }));
     credtx.addOutput(new Transaction.Output({
       script: scriptPubkey,
-      satoshis: inputAmount, 
+      satoshis: amount,
     }));
     var idbuf = credtx.id;
 
@@ -253,36 +355,44 @@ describe('Interpreter', function() {
     }));
     spendtx.addOutput(new Transaction.Output({
       script: new Script(),
-      satoshis: inputAmount,
+      satoshis: amount,
     }));
 
     var interp = new Interpreter();
-    var verified = interp.verify(scriptSig, scriptPubkey, spendtx, 0, flags, new BN(inputAmount));
+    var verified = interp.verify(scriptSig, scriptPubkey, spendtx, 0, flags, witness, amount);
     verified.should.equal(expected);
   };
   describe('bitcoind script evaluation fixtures', function() {
+
     var testAllFixtures = function(set) {
-      var c = 0; var l = set.length;
+      var c = 0;
       set.forEach(function(vector) {
         if (vector.length === 1) {
           return;
         }
         c++;
 
-        var extraData;
-        if (_.isArray (vector[0])) {
-          extraData = vector.shift();
+        var witness, amount;
+        if (_.isArray(vector[0])) {
+          var extra = vector.shift();
+          amount = extra.pop()  * 1e8;
+          witness = extra.map(function(x) { 
+            return Buffer.from(x,'hex');
+          });
+        } else {
+          return;
         }
 
         var fullScriptString = vector[0] + ' ' + vector[1];
         var expected = vector[3] == 'OK';
         var descstr = vector[4];
+
         var comment = descstr ? (' (' + descstr + ')') : '';
-        var txt = 'should ' +( vector[3] == 'OK' ? 'PASS' : 'FAIL') + ' script_tests ' +
-            'vector #' + c + '/ ' + l + ': ' + fullScriptString + comment;
-
-        it(txt, function() { testFixture(vector, expected, extraData); });
-
+        it('should ' + vector[3] + ' script_tests ' +
+          'vector #' + c + ': ' + fullScriptString + comment,
+          function() {
+            testFixture(vector, expected, witness, amount);
+          });
       });
     };
     testAllFixtures(script_tests);
@@ -334,7 +444,6 @@ describe('Interpreter', function() {
           var txVerified = tx.verify();
           txVerified = (txVerified === true) ? true : false;
           allInputsVerified = allInputsVerified && txVerified;
-
           allInputsVerified.should.equal(expected);
 
         });

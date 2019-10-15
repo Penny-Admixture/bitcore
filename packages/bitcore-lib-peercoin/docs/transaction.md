@@ -78,7 +78,7 @@ transaction.applySignature(receivedSig);
 
 ## Adding inputs
 
-Transaction inputs are instances of either [Input](https://github.com/bitpay/bitcore/tree/master/packages/bitcore-lib-cash/lib/transaction/input) or its subclasses. `Input` has some abstract methods, as there is no actual concept of a "signed input" in the bitcoin scripting system (just valid signatures for `OP_CHECKSIG` and similar opcodes). They are stored in the `input` property of `Transaction` instances.
+Transaction inputs are instances of either [Input](https://github.com/bitpay/bitcore/tree/master/lib/transaction/input) or its subclasses. `Input` has some abstract methods, as there is no actual concept of a "signed input" in the bitcoin scripting system (just valid signatures for <tt>OP_CHECKSIG</tt> and similar opcodes). They are stored in the `input` property of `Transaction` instances.
 
 Bitcore contains two implementations of `Input`, one for spending _Pay to Public Key Hash_ outputs (called `PublicKeyHashInput`) and another to spend _Pay to Script Hash_ outputs for which the redeem script is a Multisig script (called `MultisigScriptHashInput`).
 
@@ -121,6 +121,7 @@ The following methods are used to manage signatures for a transaction:
   - `inputIndex`: this input's index in the transaction
   - `sigtype`: the "sighash", the type of transaction hash used to calculate the signature
   - `publicKey`: a `PublicKey` of the `PrivateKey` used to create the signature
+
 - `addSignature`: takes an element outputed by `getSignatures` and applies the signature to this input (modifies the script to include the new signature).
 - `clearSignatures`: removes all signatures for this input
 - `isFullySigned`: returns true if the input is fully signed
@@ -140,7 +141,6 @@ To remove all outputs, you can use `clearOutputs()`, which preserves change outp
 There are a series of methods used for serialization:
 
 - `toObject`: Returns a plain JavaScript object with no methods and enough information to fully restore the state of this transaction. Using other serialization methods (except for `toJSON`) will cause a some information to be lost.
-
 - `toJSON`: Will be called when using `JSON.stringify` to return JSON-encoded string using the output from `toObject`.
 - `toString` or `uncheckedSerialize`: Returns an hexadecimal serialization of the transaction, in the [serialization format for bitcoin](https://bitcoin.org/en/developer-reference#raw-transaction-format).
 - `serialize`: Does a series of checks before serializing the transaction

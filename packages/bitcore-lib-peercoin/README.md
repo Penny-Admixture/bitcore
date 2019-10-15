@@ -1,32 +1,23 @@
-# Bitcore Lib Cash
+# Bitcore Lib
 
-[![NPM Package](https://img.shields.io/npm/v/bitcore-lib-cash.svg?style=flat-square)](https://www.npmjs.org/package/bitcore-lib-cash)
-[![Build Status](https://img.shields.io/travis/bitpay/bitcore-lib-cash.svg?branch=master&style=flat-square)](https://travis-ci.org/bitpay/bitcore-lib-cash)
-[![Coverage Status](https://coveralls.io/repos/github/bitpay/bitcore-lib-cash/badge.svg)](https://coveralls.io/github/bitpay/bitcore-lib-cash)
+[![NPM Package](https://img.shields.io/npm/v/bitcore-lib.svg?style=flat-square)](https://www.npmjs.org/package/bitcore-lib)
+[![Build Status](https://img.shields.io/travis/bitpay/bitcore-lib.svg?branch=master&style=flat-square)](https://travis-ci.org/bitpay/bitcore-lib)
+[![Coverage Status](https://img.shields.io/coveralls/bitpay/bitcore-lib.svg?style=flat-square)](https://coveralls.io/r/bitpay/bitcore-lib)
 
-**A pure and powerful JavaScript Bitcoin *Cash* library.**
+**A pure and powerful JavaScript Bitcoin library.**
 
 ## Principles
 
-Bitcoin Cash is another powerful peer-to-peer platform for the next generation of financial technology. The decentralized nature of the Bitcoin network allows for highly resilient bitcoin infrastructure, and the developer community needs reliable, open-source tools to implement bitcoin apps and services.
-
-## Bitcoin Cash changes
-
-Bitcoin cash uses a different `sighash` for transaction signatures. The implementation in bitcore-cash has been tested against the original bitcoin-cash test vectors (see sighash.json in `/test`). `bitcoin-cash` modifications in script evaluation have not been implemented yet.
+Bitcoin is a powerful new peer-to-peer platform for the next generation of financial technology. The decentralized nature of the Bitcoin network allows for highly resilient bitcoin infrastructure, and the developer community needs reliable, open-source tools to implement bitcoin apps and services.
 
 ## Get Started
 
 ```sh
-npm install bitcore-lib-cash
+npm install bitcore-lib
 ```
 
-Adding Bitcore Cash to your app's `package.json`:
-
-```json
-"dependencies": {
-    "bitcore-lib-cash": "=0.18.0",
-    ...
-}
+```sh
+bower install bitcore-lib
 ```
 
 ## Documentation
@@ -53,14 +44,14 @@ To build a bitcore-lib full bundle for the browser:
 gulp browser
 ```
 
-This will generate files named `bitcore-lib-cash.js` and `bitcore-lib-cash.min.js`.
+This will generate files named `bitcore-lib.js` and `bitcore-lib.min.js`.
 
-You can also use our pre-generated files, provided for each release along with a PGP signature by one of the project's maintainers. To get them, checkout the [releases](https://github.com/bitpay/bitcore/blob/master/packages/bitcore-lib-cash/CHANGELOG.md).
+You can also use our pre-generated files, provided for each release along with a PGP signature by one of the project's maintainers. To get them, checkout the [releases](https://github.com/bitpay/bitcore/blob/master/packages/bitcore-lib/CHANGELOG.md).
 
 ## Development & Tests
 
 ```sh
-git clone https://github.com/bitpay/bitcore-lib-cash
+git clone https://github.com/bitpay/bitcore-lib
 cd bitcore-lib
 npm install
 ```
@@ -71,8 +62,7 @@ Run all the tests:
 gulp test
 ```
 
-You can also run just the Node.js tests with `gulp test:node`, just the browser tests with `gulp test:browser`
-or create a test coverage report (you can open `coverage/lcov-report/index.html` to visualize it) with `gulp coverage`.
+You can also run just the Node.js tests with `gulp test:node`, just the browser tests with `gulp test:browser` or create a test coverage report (you can open `coverage/lcov-report/index.html` to visualize it) with `gulp coverage`.
 
 ## Security
 

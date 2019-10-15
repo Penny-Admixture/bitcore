@@ -23,7 +23,7 @@
   "dependencies": {
     "bitcore-lib": "^8.8.1",
     "bitcore-lib-cash": "^8.8.1",
-    "bitcore-lib-peercoin": "8.7.3",
+    "bitcore-lib-peercoin": "^8.8.1",
     "ethers": "4.0.37",
     "web3": "1.2.1"
   },

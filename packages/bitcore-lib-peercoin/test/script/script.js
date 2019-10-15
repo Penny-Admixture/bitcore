@@ -49,7 +49,7 @@ describe('Script', function() {
   describe('#fromBuffer', function() {
 
     it('should parse this buffer containing an OP code', function() {
-      var buf =  Buffer.alloc(1);
+      var buf = new Buffer(1);
       buf[0] = Opcode.OP_0;
       var script = Script.fromBuffer(buf);
       script.chunks.length.should.equal(1);
@@ -57,7 +57,7 @@ describe('Script', function() {
     });
 
     it('should parse this buffer containing another OP code', function() {
-      var buf = Buffer.alloc(1);
+      var buf = new Buffer(1);
       buf[0] = Opcode.OP_CHECKMULTISIG;
       var script = Script.fromBuffer(buf);
       script.chunks.length.should.equal(1);
@@ -65,14 +65,14 @@ describe('Script', function() {
     });
 
     it('should parse this buffer containing three bytes of data', function() {
-      var buf =  Buffer.from([3, 1, 2, 3]);
+      var buf = new Buffer([3, 1, 2, 3]);
       var script = Script.fromBuffer(buf);
       script.chunks.length.should.equal(1);
       script.chunks[0].buf.toString('hex').should.equal('010203');
     });
 
     it('should parse this buffer containing OP_PUSHDATA1 and three bytes of data', function() {
-      var buf = Buffer.from([0, 0, 1, 2, 3]);
+      var buf = new Buffer([0, 0, 1, 2, 3]);
       buf[0] = Opcode.OP_PUSHDATA1;
       buf.writeUInt8(3, 1);
       var script = Script.fromBuffer(buf);
@@ -81,7 +81,7 @@ describe('Script', function() {
     });
 
     it('should parse this buffer containing OP_PUSHDATA2 and three bytes of data', function() {
-      var buf =  Buffer.from([0, 0, 0, 1, 2, 3]);
+      var buf = new Buffer([0, 0, 0, 1, 2, 3]);
       buf[0] = Opcode.OP_PUSHDATA2;
       buf.writeUInt16LE(3, 1);
       var script = Script.fromBuffer(buf);
@@ -90,7 +90,7 @@ describe('Script', function() {
     });
 
     it('should parse this buffer containing OP_PUSHDATA4 and three bytes of data', function() {
-      var buf =  Buffer.from([0, 0, 0, 0, 0, 1, 2, 3]);
+      var buf = new Buffer([0, 0, 0, 0, 0, 1, 2, 3]);
       buf[0] = Opcode.OP_PUSHDATA4;
       buf.writeUInt16LE(3, 1);
       var script = Script.fromBuffer(buf);
@@ -99,7 +99,7 @@ describe('Script', function() {
     });
 
     it('should parse this buffer an OP code, data, and another OP code', function() {
-      var buf =  Buffer.from([0, 0, 0, 0, 0, 0, 1, 2, 3, 0]);
+      var buf = new Buffer([0, 0, 0, 0, 0, 0, 1, 2, 3, 0]);
       buf[0] = Opcode.OP_0;
       buf[1] = Opcode.OP_PUSHDATA4;
       buf.writeUInt16LE(3, 2);
@@ -116,7 +116,7 @@ describe('Script', function() {
   describe('#toBuffer', function() {
 
     it('should output this buffer containing an OP code', function() {
-      var buf = Buffer.alloc(1);
+      var buf = new Buffer(1);
       buf[0] = Opcode.OP_0;
       var script = Script.fromBuffer(buf);
       script.chunks.length.should.equal(1);
@@ -125,7 +125,7 @@ describe('Script', function() {
     });
 
     it('should output this buffer containing another OP code', function() {
-      var buf =  Buffer.alloc(1);
+      var buf = new Buffer(1);
       buf[0] = Opcode.OP_CHECKMULTISIG;
       var script = Script.fromBuffer(buf);
       script.chunks.length.should.equal(1);
@@ -134,7 +134,7 @@ describe('Script', function() {
     });
 
     it('should output this buffer containing three bytes of data', function() {
-      var buf =  Buffer.from([3, 1, 2, 3]);
+      var buf = new Buffer([3, 1, 2, 3]);
       var script = Script.fromBuffer(buf);
       script.chunks.length.should.equal(1);
       script.chunks[0].buf.toString('hex').should.equal('010203');
@@ -142,7 +142,7 @@ describe('Script', function() {
     });
 
     it('should output this buffer containing OP_PUSHDATA1 and three bytes of data', function() {
-      var buf = Buffer.from([0, 0, 1, 2, 3]);
+      var buf = new Buffer([0, 0, 1, 2, 3]);
       buf[0] = Opcode.OP_PUSHDATA1;
       buf.writeUInt8(3, 1);
       var script = Script.fromBuffer(buf);
@@ -152,7 +152,7 @@ describe('Script', function() {
     });
 
     it('should output this buffer containing OP_PUSHDATA2 and three bytes of data', function() {
-      var buf =  Buffer.from([0, 0, 0, 1, 2, 3]);
+      var buf = new Buffer([0, 0, 0, 1, 2, 3]);
       buf[0] = Opcode.OP_PUSHDATA2;
       buf.writeUInt16LE(3, 1);
       var script = Script.fromBuffer(buf);
@@ -162,7 +162,7 @@ describe('Script', function() {
     });
 
     it('should output this buffer containing OP_PUSHDATA4 and three bytes of data', function() {
-      var buf =  Buffer.from([0, 0, 0, 0, 0, 1, 2, 3]);
+      var buf = new Buffer([0, 0, 0, 0, 0, 1, 2, 3]);
       buf[0] = Opcode.OP_PUSHDATA4;
       buf.writeUInt16LE(3, 1);
       var script = Script.fromBuffer(buf);
@@ -172,7 +172,7 @@ describe('Script', function() {
     });
 
     it('should output this buffer an OP code, data, and another OP code', function() {
-      var buf =  Buffer.from([0, 0, 0, 0, 0, 0, 1, 2, 3, 0]);
+      var buf = new Buffer([0, 0, 0, 0, 0, 0, 1, 2, 3, 0]);
       buf[0] = Opcode.OP_0;
       buf[1] = Opcode.OP_PUSHDATA4;
       buf.writeUInt16LE(3, 2);
@@ -198,36 +198,6 @@ describe('Script', function() {
       script.chunks[3].opcodenum.should.equal(Opcode.OP_EQUALVERIFY);
       script.chunks[4].opcodenum.should.equal(Opcode.OP_CHECKSIG);
     });
-
-    it('should parse this known problematic script in ASM', function () {
-      var asm = 'OP_RETURN 026d02 0568656c6c6f';
-      var script = Script.fromASM(asm);
-      script.toASM().should.equal(asm);
-    });
-
-    it('should parse this long PUSHDATA1 script in ASM', function () {
-      var buf = Buffer.alloc(220, 0);
-      var asm = 'OP_RETURN ' + buf.toString('hex');
-      var script = Script.fromASM(asm);
-      script.chunks[1].opcodenum.should.equal(Opcode.OP_PUSHDATA1)
-      script.toASM().should.equal(asm);
-    });
-
-    it('should parse this long PUSHDATA2 script in ASM', function () {
-      var buf = Buffer.alloc(1024, 0);
-      var asm = 'OP_RETURN ' + buf.toString('hex');
-      var script = Script.fromASM(asm);
-      script.chunks[1].opcodenum.should.equal(Opcode.OP_PUSHDATA2)
-      script.toASM().should.equal(asm);
-    });
-
-    it('should parse this long PUSHDATA4 script in ASM', function () {
-      var buf = Buffer.alloc(Math.pow(2, 17), 0);
-      var asm = 'OP_RETURN ' + buf.toString('hex');
-      var script = Script.fromASM(asm);
-      script.chunks[1].opcodenum.should.equal(Opcode.OP_PUSHDATA4)
-      script.toASM().should.equal(asm);
-    });
   });
 
   describe('#fromString', function() {
@@ -249,7 +219,7 @@ describe('Script', function() {
     });
 
     it('should output this buffer an OP code, data, and another OP code', function() {
-      var buf = Buffer.from([0, 0, 0, 0, 0, 0, 1, 2, 3, 0]);
+      var buf = new Buffer([0, 0, 0, 0, 0, 0, 1, 2, 3, 0]);
       buf[0] = Opcode.OP_0;
       buf[1] = Opcode.OP_PUSHDATA4;
       buf.writeUInt16LE(3, 2);
@@ -283,7 +253,7 @@ describe('Script', function() {
 
   describe('toHex', function() {
     it('should return an hexa string "03010203" as expected from [3, 1, 2, 3]', function() {
-      var buf =  Buffer.from([3, 1, 2, 3]);
+      var buf = new Buffer([3, 1, 2, 3]);
       var script = Script.fromBuffer(buf);
       script.toHex().should.equal('03010203');
     });
@@ -295,38 +265,27 @@ describe('Script', function() {
       Script('OP_RETURN').isDataOut().should.equal(true);
     });
 
-    it('validates that this two part OP_RETURN is standard', function() {
-      Script.fromASM('OP_RETURN 026d02 0568656c6c6f').isDataOut().should.equal(true);
-    });
-
     it('validates that this 40-byte OP_RETURN is standard', function() {
-      var buf =  Buffer.alloc(40);
+      var buf = new Buffer(40);
       buf.fill(0);
       Script('OP_RETURN 40 0x' + buf.toString('hex')).isDataOut().should.equal(true);
     });
-
     it('validates that this 80-byte OP_RETURN is standard', function() {
-      var buf =  Buffer.alloc(80);
+      var buf = new Buffer(80);
       buf.fill(0);
       Script('OP_RETURN OP_PUSHDATA1 80 0x' + buf.toString('hex')).isDataOut().should.equal(true);
     });
 
-    it('validates that this 220-byte OP_RETURN is standard', function() {
-      var buf =  Buffer.alloc(220);
-      buf.fill(0);
-      Script('OP_RETURN OP_PUSHDATA1 220 0x' + buf.toString('hex')).isDataOut().should.equal(true);
-    });
-
     it('validates that this 40-byte long OP_CHECKMULTISIG is not standard op_return', function() {
-      var buf =  Buffer.alloc(40);
+      var buf = new Buffer(40);
       buf.fill(0);
       Script('OP_CHECKMULTISIG 40 0x' + buf.toString('hex')).isDataOut().should.equal(false);
     });
 
-    it('validates that this 221-byte OP_RETURN is not a valid standard OP_RETURN', function() {
-      var buf =  Buffer.alloc(221);
+    it('validates that this 81-byte OP_RETURN is not a valid standard OP_RETURN', function() {
+      var buf = new Buffer(81);
       buf.fill(0);
-      Script('OP_RETURN OP_PUSHDATA1 221 0x' + buf.toString('hex')).isDataOut().should.equal(false);
+      Script('OP_RETURN OP_PUSHDATA1 81 0x' + buf.toString('hex')).isDataOut().should.equal(false);
     });
   });
 
@@ -334,7 +293,7 @@ describe('Script', function() {
     it('correctly identify scriptSig as a public key in', function() {
       // from txid: 5c85ed63469aa9971b5d01063dbb8bcdafd412b2f51a3d24abf2e310c028bbf8
       // and input index: 5
-      var scriptBuffer =  Buffer.from('483045022050eb59c79435c051f45003d9f82865c8e4df5699d7722e77113ef8cadbd92109022100d4ab233e070070eb8e0e62e3d2d2eb9474a5bf135c9eda32755acb0875a6c20601', 'hex');
+      var scriptBuffer = new Buffer('483045022050eb59c79435c051f45003d9f82865c8e4df5699d7722e77113ef8cadbd92109022100d4ab233e070070eb8e0e62e3d2d2eb9474a5bf135c9eda32755acb0875a6c20601', 'hex');
       var script = bitcore.Script.fromBuffer(scriptBuffer);
       script.isPublicKeyIn().should.equal(true);
     });
@@ -483,14 +442,66 @@ describe('Script', function() {
 
   });
 
+  describe('#isWitnessScriptHashOut', function() {
+    it('should recognize this script as p2wsh', function() {
+      Script('OP_0 32 0xa99d08fbec6958f4d4a3776c3728ec448934d25fe1142054b8b68bac866dfc3a')
+        .isWitnessScriptHashOut().should.equal(true);
+      Script('0020a99d08fbec6958f4d4a3776c3728ec448934d25fe1142054b8b68bac866dfc3a')
+        .isWitnessScriptHashOut().should.equal(true);
+    });
+    it('should NOT identify as p2wsh', function() {
+      Script('OP_0 20 0x799d283e7f92af1dd242bf4eea513c6efd117de2')
+        .isWitnessScriptHashOut().should.equal(false);
+    });
+  });
+
+  describe('#isWitnessPublicKeyHashOut', function() {
+    it('should identify as p2wpkh', function() {
+      Script('OP_0 20 0x799d283e7f92af1dd242bf4eea513c6efd117de2')
+        .isWitnessPublicKeyHashOut().should.equal(true);
+      Script('0014799d283e7f92af1dd242bf4eea513c6efd117de2').isWitnessPublicKeyHashOut().should.equal(true);
+    });
+    it('should NOT identify as p2wpkh', function() {
+      Script('OP_0 32 0xa99d08fbec6958f4d4a3776c3728ec448934d25fe1142054b8b68bac866dfc3a')
+        .isWitnessPublicKeyHashOut().should.equal(false);
+    });
+  });
+
+  describe('#isWitnessProgram', function() {
+    it('will default values to empty object', function() {
+      Script('OP_0 20 0x799d283e7f92af1dd242bf4eea513c6efd117de2')
+        .isWitnessProgram().should.equal(true);
+    });
+    it('will return false if script is data push longer than 40 bytes', function() {
+      Script('OP_0 42 0xd06863c385592423903682926825c495b6cf88fd7cd6159ffd72f778ca475d3046e7b87835d3b457cd')
+        .isWitnessProgram().should.equal(false);
+    });
+    it('will return false if first byte op_code is greater than OP_16', function() {
+      Script('OP_NOP 20 0x799d283e7f92af1dd242bf4eea513c6efd117de2')
+        .isWitnessProgram().should.equal(false);
+    });
+    it('will return true with datapush of 20', function() {
+      var values = {};
+      Script('OP_0 20 0x799d283e7f92af1dd242bf4eea513c6efd117de2')
+        .isWitnessProgram(values).should.equal(true);
+      values.version.should.equal(0);
+      values.program.toString('hex').should.equal('799d283e7f92af1dd242bf4eea513c6efd117de2');
+    });
+    it('will return true with datapush of 32', function() {
+      var values = {};
+      Script('OP_0 32 0xc756f6d660d4aaad55534cac599a0d9bf5c7e8f70363d22926291811a168c620')
+        .isWitnessProgram(values).should.equal(true);
+      values.version.should.equal(0);
+      values.program.toString('hex').should.equal('c756f6d660d4aaad55534cac599a0d9bf5c7e8f70363d22926291811a168c620');
+    });
+  });
+
   describe('#isPushOnly', function() {
     it('should know these scripts are or aren\'t push only', function() {
       Script('OP_NOP 1 0x01').isPushOnly().should.equal(false);
       Script('OP_0').isPushOnly().should.equal(true);
       Script('OP_0 OP_RETURN').isPushOnly().should.equal(false);
       Script('OP_PUSHDATA1 5 0x1010101010').isPushOnly().should.equal(true);
-      Script('OP_PUSHDATA2 5 0x1010101010').isPushOnly().should.equal(true);
-      Script('OP_PUSHDATA4 5 0x1010101010').isPushOnly().should.equal(true);
       // like bitcoind, we regard OP_RESERVED as being "push only"
       Script('OP_RESERVED').isPushOnly().should.equal(true);
     });
@@ -626,7 +637,7 @@ describe('Script', function() {
   describe('#add and #prepend', function() {
 
     it('should add these ops', function() {
-      Script().add(1).add(10).add(186).toString().should.equal('0x01 0x0a OP_CHECKDATASIG');
+      Script().add(1).add(10).add(186).toString().should.equal('0x01 0x0a 0xba');
       Script().add(1000).toString().should.equal('0x03e8');
       Script().add('OP_CHECKMULTISIG').toString().should.equal('OP_CHECKMULTISIG');
       Script().add('OP_1').add('OP_2').toString().should.equal('OP_1 OP_2');
@@ -645,16 +656,16 @@ describe('Script', function() {
     });
 
     it('should add these push data', function() {
-      var buf =  Buffer.alloc(1);
+      var buf = new Buffer(1);
       buf.fill(0);
       Script().add(buf).toString().should.equal('1 0x00');
-      buf =  Buffer.alloc(255);
+      buf = new Buffer(255);
       buf.fill(0);
       Script().add(buf).toString().should.equal('OP_PUSHDATA1 255 0x' + buf.toString('hex'));
-      buf =  Buffer.alloc(256);
+      buf = new Buffer(256);
       buf.fill(0);
       Script().add(buf).toString().should.equal('OP_PUSHDATA2 256 0x' + buf.toString('hex'));
-      buf =  Buffer.alloc(Math.pow(2, 16));
+      buf = new Buffer(Math.pow(2, 16));
       buf.fill(0);
       Script().add(buf).toString().should.equal('OP_PUSHDATA4 ' + Math.pow(2, 16) + ' 0x' + buf.toString('hex'));
     });
@@ -662,13 +673,13 @@ describe('Script', function() {
     it('should add both pushdata and non-pushdata chunks', function() {
       Script().add('OP_CHECKMULTISIG').toString().should.equal('OP_CHECKMULTISIG');
       Script().add(Opcode.map.OP_CHECKMULTISIG).toString().should.equal('OP_CHECKMULTISIG');
-      var buf =  Buffer.alloc(1);
+      var buf = new Buffer(1);
       buf.fill(0);
       Script().add(buf).toString().should.equal('1 0x00');
     });
 
     it('should work for no data OP_RETURN', function() {
-      Script().add(Opcode.OP_RETURN).add( Buffer.alloc(0)).toString().should.equal('OP_RETURN');
+      Script().add(Opcode.OP_RETURN).add(new Buffer('')).toString().should.equal('OP_RETURN');
     });
     it('works with objects', function() {
       Script().add({
@@ -740,22 +751,34 @@ describe('Script', function() {
       }
     }
   });
+
+  describe('#buildWitnessMultisigOutFromScript', function() {
+    it('it will build nested witness scriptSig', function() {
+      var redeemScript = bitcore.Script();
+      var redeemHash = bitcore.crypto.Hash.sha256(redeemScript.toBuffer());
+      var s = Script.buildWitnessMultisigOutFromScript(redeemScript);
+      var buf = s.toBuffer();
+      buf[0].should.equal(0);
+      buf.slice(2, 34).toString('hex').should.equal(redeemHash.toString('hex'));
+    });
+  });
+
   describe('#buildPublicKeyHashOut', function() {
     it('should create script from livenet address', function() {
-      var address = Address.fromString('bitcoincash:qrk2ulgf99rm0mjfnr39f2jgjqxjd5kwr5rfyamw2k');
+      var address = Address.fromString('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
       var s = Script.buildPublicKeyHashOut(address);
       should.exist(s);
       s.toString().should.equal('OP_DUP OP_HASH160 20 0xecae7d092947b7ee4998e254aa48900d26d2ce1d OP_EQUALVERIFY OP_CHECKSIG');
       s.isPublicKeyHashOut().should.equal(true);
-      s.toAddress().toString().should.equal('bitcoincash:qrk2ulgf99rm0mjfnr39f2jgjqxjd5kwr5rfyamw2k');
+      s.toAddress().toString().should.equal('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
     });
     it('should create script from testnet address', function() {
-      var address = Address.fromString('bchtest:qzukhqt0x796hv07tpdhheaze5twhxdnuslxfpzagp');
+      var address = Address.fromString('mxRN6AQJaDi5R6KmvMaEmZGe3n5ScV9u33');
       var s = Script.buildPublicKeyHashOut(address);
       should.exist(s);
       s.toString().should.equal('OP_DUP OP_HASH160 20 0xb96b816f378babb1fe585b7be7a2cd16eb99b3e4 OP_EQUALVERIFY OP_CHECKSIG');
       s.isPublicKeyHashOut().should.equal(true);
-      s.toAddress().toString().should.equal('bchtest:qzukhqt0x796hv07tpdhheaze5twhxdnuslxfpzagp');
+      s.toAddress().toString().should.equal('mxRN6AQJaDi5R6KmvMaEmZGe3n5ScV9u33');
     });
     it('should create script from public key', function() {
       var pubkey = new PublicKey('022df8750480ad5b26950b25c7ba79d3e37d75f640f8e5d9bcd5b150a0f85014da');
@@ -784,14 +807,14 @@ describe('Script', function() {
       s.isDataOut().should.equal(true);
     });
     it('should create script from empty data', function() {
-      var data =  Buffer.alloc(0);
+      var data = new Buffer('');
       var s = Script.buildDataOut(data);
       should.exist(s);
       s.toString().should.equal('OP_RETURN');
       s.isDataOut().should.equal(true);
     });
     it('should create script from some data', function() {
-      var data =  Buffer.from('bacacafe0102030405', 'hex');
+      var data = new Buffer('bacacafe0102030405', 'hex');
       var s = Script.buildDataOut(data);
       should.exist(s);
       s.toString().should.equal('OP_RETURN 9 0xbacacafe0102030405');
@@ -822,14 +845,14 @@ describe('Script', function() {
     });
 
     it('inherits network property from other script', function() {
-      var s1 = new Script.fromAddress(new Address('CWuF5o5ZGDwXNWe2eCPxPZPWwKMWuiixY2'));
+      var s1 = new Script.fromAddress(new Address('1FSMWkjVPAxzUNjbxT52p3mVKC971rfW3S'));
       var s2 = Script.buildScriptHashOut(s1);
       should.exist(s1._network);
       s1._network.should.equal(s2._network);
     });
 
     it('inherits network property form an address', function() {
-      var address = new Address('H9Ctbp1Y7th1TgkbabT19mpXGqEsTXggJE');
+      var address = new Address('34Nn91aTGaULqWsZiunrBPHzFBDrZ3B8XS');
       var script = Script.buildScriptHashOut(address);
       should.exist(script._network);
       script._network.should.equal(address.network);
@@ -876,17 +899,17 @@ describe('Script', function() {
       Script().add(1000).checkMinimalPush(0).should.equal(true);
       Script().add(0xffffffff).checkMinimalPush(0).should.equal(true);
       Script().add(0xffffffffffffffff).checkMinimalPush(0).should.equal(true);
-      Script().add( Buffer.from([0])).checkMinimalPush(0).should.equal(true);
+      Script().add(new Buffer([0])).checkMinimalPush(0).should.equal(true);
 
-      var buf =  Buffer.alloc(75);
+      var buf = new Buffer(75);
       buf.fill(1);
       Script().add(buf).checkMinimalPush(0).should.equal(true);
 
-      buf =  Buffer.alloc(76);
+      buf = new Buffer(76);
       buf.fill(1);
       Script().add(buf).checkMinimalPush(0).should.equal(true);
 
-      buf =  Buffer.alloc(256);
+      buf = new Buffer(256);
       buf.fill(1);
       Script().add(buf).checkMinimalPush(0).should.equal(true);
     });
@@ -897,24 +920,24 @@ describe('Script', function() {
     it('works with this testnet transaction', function() {
       // testnet block: 00000000a36400fc06440512354515964bc36ecb0020bd0b0fd48ae201965f54
       // txhash: e362e21ff1d2ef78379d401d89b42ce3e0ce3e245f74b1f4cb624a8baa5d53ad (output 0);
-      var script = Script.fromBuffer(Buffer.from('6a', 'hex'));
+      var script = Script.fromBuffer(new Buffer('6a', 'hex'));
       var dataout = script.isDataOut();
       dataout.should.equal(true);
       var data = script.getData();
-      data.should.deep.equal(Buffer.alloc(0));
+      data.should.deep.equal(new Buffer(0));
     });
     it('for a P2PKH address', function() {
-      var address = Address.fromString('Ce3M4ysH6XH7RMK1RYu4wLujcC7sv4EhNU');
+      var address = Address.fromString('1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14');
       var script = Script.buildPublicKeyHashOut(address);
       expect(BufferUtil.equal(script.getData(), address.hashBuffer)).to.be.equal(true);
     });
     it('for a P2SH address', function() {
-      var address = Address.fromString('bitcoincash:pzjt8lxnl977xtexlycnl5fyt0al9gcnauyjtqh68n');
+      var address = Address.fromString('3GhtMmAbWrUf6Y8vDxn9ETB14R6V7Br3mt');
       var script = new Script(address);
       expect(BufferUtil.equal(script.getData(), address.hashBuffer)).to.be.equal(true);
     });
     it('for a standard opreturn output', function() {
-      expect(BufferUtil.equal(Script('OP_RETURN 1 0xFF').getData(), Buffer.from([255]))).to.be.equal(true);
+      expect(BufferUtil.equal(Script('OP_RETURN 1 0xFF').getData(), new Buffer([255]))).to.be.equal(true);
     });
     it('fails if content is not recognized', function() {
       expect(function() {
@@ -945,13 +968,13 @@ describe('Script', function() {
       script.toAddress().network.should.equal(Networks.defaultNetwork);
     });
     it('for a P2PKH address', function() {
-      var stringAddress = 'bitcoincash:qrk2ulgf99rm0mjfnr39f2jgjqxjd5kwr5rfyamw2k';
+      var stringAddress = '1NaTVwXDDUJaXDQajoa9MqHhz4uTxtgK14';
       var address = new Address(stringAddress);
       var script = new Script(address);
       script.toAddress().toString().should.equal(stringAddress);
     });
     it('for a P2SH address', function() {
-      var stringAddress = 'bitcoincash:pzjt8lxnl977xtexlycnl5fyt0al9gcnauyjtqh68n';
+      var stringAddress = '3GhtMmAbWrUf6Y8vDxn9ETB14R6V7Br3mt';
       var address = new Address(stringAddress);
       var script = new Script(address);
       script.toAddress().toString().should.equal(stringAddress);
@@ -964,26 +987,26 @@ describe('Script', function() {
       // taken from tx 7e519caca256423320b92e3e17be5701f87afecbdb3f53af598032bfd8d164f5
       var script = new Script('OP_DUP OP_HASH160 20 ' +
         '0xc8e11b0eb0d2ad5362d894f048908341fa61b6e1 OP_EQUALVERIFY OP_CHECKSIG');
-      script.toAddress().toString().should.equal('bitcoincash:qrywzxcwkrf265mzmz20qjyssdql5cdkuyz47850l7');
+      script.toAddress().toString().should.equal('1KK9oz4bFH8c1t6LmighHaoSEGx3P3FEmc');
     });
     it('works for p2pkh input', function() {
       // taken from tx 7e519caca256423320b92e3e17be5701f87afecbdb3f53af598032bfd8d164f5
       var script = new Script('72 0x3045022100eff96230ca0f55b1e8c7a63e014f48611ff1af40875ecd33dee9062d7a6f5e2002206320405b5f6992c756e03e66b21a05a812b60996464ac6af815c2638b930dd7a01 65 0x04150defa035a2c7d826d7d5fc8ab2154bd1bb832f1a5c8ecb338f436362ad232e428b57db44677c5a8bd42c5ed9e2d7e04e742c59bee1b40080cfd57dec64b23a');
-      script.toAddress().toString().should.equal('bitcoincash:qrywzxcwkrf265mzmz20qjyssdql5cdkuyz47850l7');
+      script.toAddress().toString().should.equal('1KK9oz4bFH8c1t6LmighHaoSEGx3P3FEmc');
       // taken from tx 7f8f95752a59d715dae9e0008a42e7968d2736741591bbfc6685f6e1649c21ed
       var s2 = new Script('71 0x3044022017053dad84aa06213749df50a03330cfd24d6b8e7ddbb6de66c03697b78a752a022053bc0faca8b4049fb3944a05fcf7c93b2861734d39a89b73108f605f70f5ed3401 33 0x0225386e988b84248dc9c30f784b06e02fdec57bbdbd443768eb5744a75ce44a4c');
-      s2.toAddress().toString().should.equal('bitcoincash:qprjfgyvctp82eddvwrup69dvggw63afzg0rfyyvtn');
+      s2.toAddress().toString().should.equal('17VArX6GRE6i6MVscBUZoXwi6NhnHa68B7');
     });
 
     it('works for p2sh output', function() {
       // taken from tx fe1f764299dc7f3b5a8fae912050df2b633bf99554c68bf1c456edb9c2b63585
       var script = new Script('OP_HASH160 20 0x99d29051af0c29adcb9040034752bba7dde33e35 OP_EQUAL');
-      script.toAddress().toString().should.equal('bitcoincash:pzva9yz34uxzntwtjpqqx36jhwnamce7x5whc9x70h');
+      script.toAddress().toString().should.equal('3FiMZ7stbfH2WG5JQ7CiuzrFo7CEnGUcAP');
     });
     it('works for p2sh input', function() {
       // taken from tx fe1f764299dc7f3b5a8fae912050df2b633bf99554c68bf1c456edb9c2b63585
       var script = new Script('OP_FALSE 72 0x3045022100e824fbe979fac5834d0062dd5a4e82a898e00ac454bd254cd708ad28530816f202206251ff0fa4dd70c0524c690d4e4deb2bd167297e7bbdf6743b4a8050d681555001 37 0x512102ff3ae0aaa4679ea156d5581dbe6695cc0c311df0aa42af76670d0debbd8f672951ae');
-      script.toAddress().toString().should.equal('bitcoincash:pz30sxmypnge5lv0eyshlt0w5jzu5axu3sl4r37aun');
+      script.toAddress().toString().should.equal('3GYicPxCvsKvbJmZNBBeWkC3cLuGFhtrQi');
     });
 
     // no address scripts
@@ -1004,10 +1027,10 @@ describe('Script', function() {
       Script('OP_TRUE OP_TRUE').equals(Script('OP_TRUE OP_FALSE')).should.equal(false);
     });
     it('returns false for different data', function() {
-      Script().add(Buffer.from('a')).equals(Script('OP_TRUE')).should.equal(false);
+      Script().add(new Buffer('a')).equals(Script('OP_TRUE')).should.equal(false);
     });
     it('returns false for different data', function() {
-      Script().add(Buffer.from('a')).equals(Script().add( Buffer.from('b'))).should.equal(false);
+      Script().add(new Buffer('a')).equals(Script().add(new Buffer('b'))).should.equal(false);
     });
   });
 

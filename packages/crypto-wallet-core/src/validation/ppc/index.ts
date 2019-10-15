@@ -1,7 +1,7 @@
 import { IValidation } from '..';
 const BitcorePeercoin = require('bitcore-lib-peercoin');
 
- export class PpcValidation implements IValidation {
+export class PpcValidation implements IValidation {
   validateAddress(network: string, address: string): boolean {
       // Check if the input is a valid uri or address
       const URIPeercoin = BitcorePeercoin.URI;

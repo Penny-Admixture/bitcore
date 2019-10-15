@@ -28,11 +28,10 @@ module.exports = function(config) {
     plugins: [
       'karma-mocha',
       'karma-chrome-launcher',
-      'karma-phantomjs-launcher',
       'karma-firefox-launcher',
       'karma-detect-browsers'
-    ],
-    browsers: ['PhantomJS', 'Chrome', 'Firefox']
+    ]
+    browsers: ['Chrome', 'Firefox']
   });
 
 };

@@ -6,8 +6,8 @@ We're working hard to make *bitcore* the most powerful JavaScript library for wo
 
 If there are any questions, etc., please feel to ask in one of the community channels:
 
-- https://labs.bitpay.com/c/bitcore (Support Forum)
-- https://gitter.im/bitpay/bitcore (Development Chat)
+- [Support Forum](https://labs.bitpay.com/c/bitcore)
+- [Development Chat](https://gitter.im/bitpay/bitcore)
 
 ## Quick Checklist
 

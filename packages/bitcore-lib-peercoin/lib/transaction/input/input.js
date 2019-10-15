@@ -58,6 +58,7 @@ Input.prototype._fromObject = function(params) {
   } else {
     prevTxId = params.prevTxId;
   }
+  this.witnesses = [];
   this.output = params.output ?
     (params.output instanceof Output ? params.output : new Output(params.output)) : undefined;
   this.prevTxId = prevTxId || params.txidbuf;
@@ -118,10 +119,6 @@ Input.prototype.setScript = function(script) {
     this._script = script;
     this._script._isInput = true;
     this._scriptBuffer = script.toBuffer();
-  } else if (script === null) {
-    this._script = Script.empty();
-    this._script._isInput = true;
-    this._scriptBuffer = this._script.toBuffer();
   } else if (JSUtil.isHexa(script)) {
     // hex string script
     this._scriptBuffer = new buffer.Buffer(script, 'hex');
@@ -157,6 +154,13 @@ Input.prototype.getSignatures = function() {
   );
 };
 
+Input.prototype.getSatoshisBuffer = function() {
+  $.checkState(this.output instanceof Output);
+  $.checkState(this.output._satoshisBN);
+  return new BufferWriter().writeUInt64LEBN(this.output._satoshisBN).toBuffer();
+};
+
+
 Input.prototype.isFullySigned = function() {
   throw new errors.AbstractMethodInvoked('Input#isFullySigned');
 };
@@ -173,6 +177,21 @@ Input.prototype.clearSignatures = function() {
   throw new errors.AbstractMethodInvoked('Input#clearSignatures');
 };
 
+Input.prototype.hasWitnesses = function() {
+  if (this.witnesses && this.witnesses.length > 0) {
+    return true;
+  }
+  return false;
+};
+
+Input.prototype.getWitnesses = function() {
+  return this.witnesses;
+};
+
+Input.prototype.setWitnesses = function(witnesses) {
+  this.witnesses = witnesses;
+};
+
 Input.prototype.isValidSignature = function(transaction, signature) {
   // FIXME: Refactor signature so this is not necessary
   signature.signature.nhashtype = signature.sigtype;
@@ -181,8 +200,7 @@ Input.prototype.isValidSignature = function(transaction, signature) {
     signature.signature,
     signature.publicKey,
     signature.inputIndex,
-    this.output.script,
-    this.output.satoshisBN
+    this.output.script
   );
 };
 

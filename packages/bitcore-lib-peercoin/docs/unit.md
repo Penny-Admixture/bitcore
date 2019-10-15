@@ -4,7 +4,7 @@ Unit is a utility for handling and converting bitcoin units. We strongly recomme
 
 To understand the need of using the `Unit` class when dealing with unit conversions, see this example:
 
-```
+```javascript
 > 81.99 * 100000 // wrong
 8198999.999999999
 > var bitcore = require('bitcore');

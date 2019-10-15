@@ -1,7 +1,7 @@
 {
   "name": "bitcore-lib-peercoin",
-  "version": "8.7.3",
-  "description": "A pure and powerful JavaScript Bitcoin Cash library.",
+  "version": "8.8.1",
+  "description": "A pure and powerful JavaScript Bitcoin library.",
   "author": "BitPay <dev@bitpay.com>",
   "main": "index.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "pub": "npm run build && npm publish"
   },
   "keywords": [
+    "peercoin",
     "bitcoin",
     "transaction",
     "address",
@@ -30,13 +31,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/peercoin/bitcore/tree/master/packages/bitcore-lib-peercoin"
+    "url": "https://github.com/backpacker69/bitcore/tree/master/packages/bitcore-lib-peercoin"
   },
   "browser": {
     "request": "browser-request"
   },
   "dependencies": {
-    "bitcore-lib": "^8.7.3",
+    "bech32": "=1.1.3",
     "bn.js": "=4.11.8",
     "bs58": "^4.0.1",
     "buffer-compare": "=1.1.1",
@@ -45,8 +46,7 @@
     "lodash": "=4.17.15"
   },
   "devDependencies": {
-    "base-x": "=3.0.4",
-    "bitcore-build": "^8.7.2",
+    "bitcore-build": "^8.8.1",
     "brfs": "^2.0.1",
     "chai": "^4.2.0",
     "gulp": "^4.0.0",

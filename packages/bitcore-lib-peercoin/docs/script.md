@@ -86,7 +86,7 @@ assert(script.toString() === 'OP_RETURN 14 0x68656c6c6f20776f726c64212121'
 
 To create a custom `Script` instance, you must rely on the lower-level methods `add` and `prepend`. Both methods accept the same parameter types, and insert an opcode or data at the beginning (`prepend`) or end (`add`) of the `Script`.
 
-```
+```javascript
 var script = Script()
   .add('OP_IF')                       // add an opcode by name
   .prepend(114)                       // add OP_2SWAP by code
@@ -117,7 +117,7 @@ To validate a transaction, the bitcoin network validates all of its inputs and o
 
 You can use it like this:
 
-```
+```javascript
 var inputScript = Script('OP_1');
 var outputScript = Script('OP_15 OP_ADD OP_16 OP_EQUAL');
 
@@ -129,7 +129,7 @@ Note that `verify` expects two scripts: one is the input script (scriptSig) and 
 
 It also accepts some optional parameters, assuming defaults if not provided:
 
-```
+```javascript
 // first we create a transaction
 var tx = new Transaction()
   .from(utxo)

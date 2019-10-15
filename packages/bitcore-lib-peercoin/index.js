@@ -37,8 +37,6 @@ bitcore.util = {};
 bitcore.util.buffer = require('./lib/util/buffer');
 bitcore.util.js = require('./lib/util/js');
 bitcore.util.preconditions = require('./lib/util/preconditions');
-bitcore.util.base32 = require('./lib/util/base32');
-bitcore.util.convertBits = require('./lib/util/convertBits');
 
 // errors thrown by the library
 bitcore.errors = require('./lib/errors');
@@ -50,6 +48,7 @@ bitcore.MerkleBlock = require('./lib/block/merkleblock');
 bitcore.BlockHeader = require('./lib/block/blockheader');
 bitcore.HDPrivateKey = require('./lib/hdprivatekey.js');
 bitcore.HDPublicKey = require('./lib/hdpublickey.js');
+bitcore.Message = require('./lib/message');
 bitcore.Networks = require('./lib/networks');
 bitcore.Opcode = require('./lib/opcode');
 bitcore.PrivateKey = require('./lib/privatekey');

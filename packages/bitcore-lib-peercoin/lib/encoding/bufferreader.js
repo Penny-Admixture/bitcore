@@ -17,12 +17,8 @@ var BufferReader = function BufferReader(buf) {
       buf: buf
     });
   } else if (_.isString(buf)) {
-    var b = Buffer.from(buf, 'hex');
-    if (b.length * 2 != buf.length) 
-      throw new TypeError('Invalid hex string');
-
     this.set({
-      buf: b
+      buf: Buffer.from(buf, 'hex'),
     });
   } else if (_.isObject(buf)) {
     var obj = buf;
@@ -39,7 +35,11 @@ BufferReader.prototype.set = function(obj) {
 };
 
 BufferReader.prototype.eof = function() {
-  return this.pos >= this.buf.length;
+  if(this.buf) {
+    return this.pos >= this.buf.length;
+  } else {
+    return true;
+  }
 };
 
 BufferReader.prototype.finished = BufferReader.prototype.eof;

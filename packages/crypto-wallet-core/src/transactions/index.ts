@@ -1,8 +1,8 @@
 import { BCHTxProvider } from './bch';
 import { BTCTxProvider } from './btc';
-import { PPCTxProvider } from './ppc';
 import { ERC20TxProvider } from './erc20';
 import { ETHTxProvider } from './eth';
+import { PPCTxProvider } from './ppc';
 
 const providers = {
   BTC: new BTCTxProvider(),

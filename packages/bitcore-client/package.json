@@ -24,7 +24,7 @@
     "bcryptjs": "2.4.3",
     "bitcore-lib": "^8.8.1",
     "bitcore-lib-cash": "^8.8.1",
-    "bitcore-lib-peercoin": "8.7.3",
+    "bitcore-lib-peercoin": "^8.8.1",
     "bitcore-mnemonic": "^8.8.1",
     "commander": "2.15.1",
     "crypto-wallet-core": "^8.8.1",

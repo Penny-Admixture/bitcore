@@ -1,3 +1,5 @@
+'use strict';
+
 var Address = require('../address');
 var BufferReader = require('../encoding/bufferreader');
 var BufferWriter = require('../encoding/bufferwriter');
@@ -144,23 +146,21 @@ Script.fromASM = function(str) {
 
     if (_.isUndefined(opcodenum)) {
       var buf = Buffer.from(tokens[i], 'hex');
-      var opcodenum;
-      var len = buf.length;
-      if (len >= 0 && len < Opcode.OP_PUSHDATA1) {
-        opcodenum = len;
-      } else if (len < Math.pow(2, 8)) {
-        opcodenum = Opcode.OP_PUSHDATA1;
-      } else if (len < Math.pow(2, 16)) {
-        opcodenum = Opcode.OP_PUSHDATA2;
-      } else if (len < Math.pow(2, 32)) {
-        opcodenum = Opcode.OP_PUSHDATA4;
-      }
       script.chunks.push({
         buf: buf,
         len: buf.length,
-        opcodenum: opcodenum
+        opcodenum: buf.length
       });
       i = i + 1;
+    } else if (opcodenum === Opcode.OP_PUSHDATA1 ||
+      opcodenum === Opcode.OP_PUSHDATA2 ||
+      opcodenum === Opcode.OP_PUSHDATA4) {
+      script.chunks.push({
+        buf: Buffer.from(tokens[i + 2], 'hex'),
+        len: parseInt(tokens[i + 1]),
+        opcodenum: opcodenum
+      });
+      i = i + 3;
     } else {
       script.chunks.push({
         opcodenum: opcodenum
@@ -258,9 +258,9 @@ Script.prototype._chunkToString = function(chunk, type) {
     }
   } else {
     // data chunk
-    if (!asm && (opcodenum === Opcode.OP_PUSHDATA1 ||
+    if (!asm && opcodenum === Opcode.OP_PUSHDATA1 ||
       opcodenum === Opcode.OP_PUSHDATA2 ||
-      opcodenum === Opcode.OP_PUSHDATA4)) {
+      opcodenum === Opcode.OP_PUSHDATA4) {
       str = str + ' ' + Opcode(opcodenum).toString();
     }
     if (chunk.len > 0) {
@@ -405,6 +405,49 @@ Script.prototype.isScriptHashOut = function() {
 };
 
 /**
+ * @returns {boolean} if this is a p2wsh output script
+ */
+Script.prototype.isWitnessScriptHashOut = function() {
+  var buf = this.toBuffer();
+  return (buf.length === 34 && buf[0] === 0 && buf[1] === 32);
+};
+
+/**
+ * @returns {boolean} if this is a p2wpkh output script
+ */
+Script.prototype.isWitnessPublicKeyHashOut = function() {
+  var buf = this.toBuffer();
+  return (buf.length === 22 && buf[0] === 0 && buf[1] === 20);
+};
+
+/**
+ * @param {Object=} values - The return values
+ * @param {Number} values.version - Set with the witness version
+ * @param {Buffer} values.program - Set with the witness program
+ * @returns {boolean} if this is a p2wpkh output script
+ */
+Script.prototype.isWitnessProgram = function(values) {
+  if (!values) {
+    values = {};
+  }
+  var buf = this.toBuffer();
+  if (buf.length < 4 || buf.length > 42) {
+    return false;
+  }
+  if (buf[0] !== Opcode.OP_0 && !(buf[0] >= Opcode.OP_1 && buf[0] <= Opcode.OP_16)) {
+    return false;
+  }
+
+  if (buf.length === buf[1] + 2) {
+    values.version = buf[0];
+    values.program = buf.slice(2, buf.length);
+    return true;
+  }
+
+  return false;
+};
+
+/**
  * @returns {boolean} if this is a p2sh input script
  * Note that these are frequently indistinguishable from pubkeyhashin
  */
@@ -462,23 +505,23 @@ Script.prototype.isMultisigIn = function() {
  * @returns {boolean} true if this is a valid standard OP_RETURN output
  */
 Script.prototype.isDataOut = function() {
-  var step1 = this.chunks.length >= 1 &&
+  return this.chunks.length >= 1 &&
     this.chunks[0].opcodenum === Opcode.OP_RETURN &&
-    this.toBuffer().length <= 223; // 223 instead of 220 because (+1 for OP_RETURN, +2 for the pushdata opcodes)
-  if (!step1) return false;
-  var chunks = this.chunks.slice(1);
-  var script2 = new Script({chunks: chunks});
-  return script2.isPushOnly();
+    (this.chunks.length === 1 ||
+      (this.chunks.length === 2 &&
+        this.chunks[1].buf &&
+        this.chunks[1].buf.length <= Script.OP_RETURN_STANDARD_SIZE &&
+        this.chunks[1].length === this.chunks.len));
 };
 
 /**
  * Retrieve the associated data for this script.
- * In the case of a pay to public key hash or P2SH, return the hash.
+ * In the case of a pay to public key hash, P2SH, P2WSH, or P2WPKH, return the hash.
  * In the case of a standard OP_RETURN, return the data
  * @returns {Buffer}
  */
 Script.prototype.getData = function() {
-  if (this.isDataOut() || this.isScriptHashOut()) {
+  if (this.isDataOut() || this.isScriptHashOut() || this.isWitnessScriptHashOut() || this.isWitnessPublicKeyHashOut()) {
     if (_.isUndefined(this.chunks[1])) {
       return Buffer.alloc(0);
     } else {
@@ -497,10 +540,7 @@ Script.prototype.getData = function() {
  */
 Script.prototype.isPushOnly = function() {
   return _.every(this.chunks, function(chunk) {
-    return chunk.opcodenum <= Opcode.OP_16 ||
-      chunk.opcodenum === Opcode.OP_PUSHDATA1 ||
-      chunk.opcodenum === Opcode.OP_PUSHDATA2 ||
-      chunk.opcodenum === Opcode.OP_PUSHDATA4;
+    return chunk.opcodenum <= Opcode.OP_16;
   });
 };
 
@@ -517,7 +557,7 @@ Script.types.MULTISIG_OUT = 'Pay to multisig';
 Script.types.MULTISIG_IN = 'Spend from multisig';
 Script.types.DATA_OUT = 'Data push';
 
-Script.OP_RETURN_STANDARD_SIZE = 220;
+Script.OP_RETURN_STANDARD_SIZE = 80;
 
 /**
  * @returns {object} The Script type if it is a known form,
@@ -692,6 +732,14 @@ Script.prototype._addBuffer = function(buf, prepend) {
   return this;
 };
 
+Script.prototype.hasCodeseparators = function() {
+  for (var i = 0; i < this.chunks.length; i++) {
+    if (this.chunks[i].opcodenum === Opcode.OP_CODESEPARATOR) {
+      return true;
+    }
+  }
+  return false;
+};
 
 Script.prototype.removeCodeseparators = function() {
   var chunks = [];
@@ -735,6 +783,17 @@ Script.buildMultisigOut = function(publicKeys, threshold, opts) {
   script.add(Opcode.smallInt(publicKeys.length));
   script.add(Opcode.OP_CHECKMULTISIG);
   return script;
+};
+
+Script.buildWitnessMultisigOutFromScript = function(script) {
+  if (script instanceof Script) {
+    var s = new Script();
+    s.add(Opcode.OP_0);
+    s.add(Hash.sha256(script.toBuffer()));
+    return s;
+  } else {
+    throw new TypeError('First argument is expected to be a p2sh script');
+  }
 };
 
 /**
@@ -811,6 +870,24 @@ Script.buildPublicKeyHashOut = function(to) {
     .add(to.hashBuffer)
     .add(Opcode.OP_EQUALVERIFY)
     .add(Opcode.OP_CHECKSIG);
+  s._network = to.network;
+  return s;
+};
+
+/**
+ * @returns {Script} a new pay to witness v0 output for the given
+ * address
+ * @param {Address} to - destination address
+ */
+Script.buildWitnessV0Out = function(to) {
+  $.checkArgument(!_.isUndefined(to));
+  $.checkArgument(to instanceof Address || _.isString(to));
+  if (_.isString(to)) {
+    to = new Address(to);
+  }
+  var s = new Script();
+  s.add(Opcode.OP_0)
+    .add(to.hashBuffer);
   s._network = to.network;
   return s;
 };
@@ -928,6 +1005,10 @@ Script.fromAddress = function(address) {
     return Script.buildScriptHashOut(address);
   } else if (address.isPayToPublicKeyHash()) {
     return Script.buildPublicKeyHashOut(address);
+  } else if (address.isPayToWitnessPublicKeyHash()) {
+    return Script.buildWitnessV0Out(address);
+  } else if (address.isPayToWitnessScriptHash()) {
+    return Script.buildWitnessV0Out(address);
   }
   throw new errors.Script.UnrecognizedAddress(address);
 };
@@ -963,6 +1044,12 @@ Script.prototype._getOutputAddressInfo = function() {
   } else if (this.isPublicKeyHashOut()) {
     info.hashBuffer = this.getData();
     info.type = Address.PayToPublicKeyHash;
+  } else if (this.isWitnessScriptHashOut()) {
+    info.hashBuffer = this.getData();
+    info.type = Address.PayToWitnessScriptHash;
+  } else if (this.isWitnessPublicKeyHashOut()) {
+    info.hashBuffer = this.getData();
+    info.type = Address.PayToWitnessPublicKeyHash;
   } else {
     return false;
   }

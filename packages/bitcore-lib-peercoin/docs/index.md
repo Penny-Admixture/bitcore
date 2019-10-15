@@ -1,4 +1,4 @@
-# Bitcore Cash
+# Bitcore
 
 ## Principles
 
@@ -39,7 +39,7 @@ To get started, just `npm install bitcore` or `bower install bitcore`.
 
 Some functionality is implemented as a module that can be installed separately:
 
-- [Peer to Peer Networking](https://github.com/bitpay/bitcore/tree/master/packages/bitcore-p2p-cash)
+- [Peer to Peer Networking](https://github.com/bitpay/bitcore/tree/master/packages/bitcore-p2p)
 - [Bitcoin Core JSON-RPC](https://github.com/bitpay/bitcoind-rpc)
 - [Payment Channels](https://github.com/bitpay/bitcore-channel)
 - [Mnemonics](https://github.com/bitpay/bitcore/tree/master/packages/bitcore-mnemonic)

@@ -1,5 +1,7 @@
 'use strict';
 
+/* jshint maxparams:5 */
+
 var _ = require('lodash');
 var inherits = require('inherits');
 var Input = require('./input');
@@ -9,14 +11,15 @@ var $ = require('../../util/preconditions');
 var Script = require('../../script');
 var Signature = require('../../crypto/signature');
 var Sighash = require('../sighash');
-var PublicKey = require('../../publickey');
+var SighashWitness = require('../sighashwitness');
+var BufferWriter = require('../../encoding/bufferwriter');
 var BufferUtil = require('../../util/buffer');
 var TransactionSignature = require('../signature');
 
 /**
  * @constructor
  */
-function MultiSigScriptHashInput(input, pubkeys, threshold, signatures, opts) {
+function MultiSigScriptHashInput(input, pubkeys, threshold, signatures, nestedWitness, opts) {
   /* jshint maxstatements:20 */
   opts = opts || {};
   Input.apply(this, arguments);
@@ -24,14 +27,25 @@ function MultiSigScriptHashInput(input, pubkeys, threshold, signatures, opts) {
   pubkeys = pubkeys || input.publicKeys;
   threshold = threshold || input.threshold;
   signatures = signatures || input.signatures;
+  this.nestedWitness = nestedWitness ? true : false;
   if (opts.noSorting) {
-    this.publicKeys = pubkeys
+    this.publicKeys = pubkeys;
   } else  {
     this.publicKeys = _.sortBy(pubkeys, function(publicKey) { return publicKey.toString('hex'); });
   }
-  this.redeemScript = Script.buildMultisigOut(this.publicKeys, threshold);
-  $.checkState(Script.buildScriptHashOut(this.redeemScript).equals(this.output.script),
+  this.redeemScript = Script.buildMultisigOut(this.publicKeys, threshold, opts);
+  if (this.nestedWitness) {
+    var nested = Script.buildWitnessMultisigOutFromScript(this.redeemScript);
+    $.checkState(Script.buildScriptHashOut(nested).equals(this.output.script),
+                 'Provided public keys don\'t hash to the provided output (nested witness)');
+    var scriptSig = new Script();
+    scriptSig.add(nested.toBuffer());
+    this.setScript(scriptSig);
+  } else {
+    $.checkState(Script.buildScriptHashOut(this.redeemScript).equals(this.output.script),
                'Provided public keys don\'t hash to the provided output');
+  }
+
   this.publicKeyIndex = {};
   _.each(this.publicKeys, function(publicKey, index) {
     self.publicKeyIndex[publicKey.toString()] = index;
@@ -68,20 +82,53 @@ MultiSigScriptHashInput.prototype._serializeSignatures = function() {
   });
 };
 
+MultiSigScriptHashInput.prototype.getScriptCode = function() {
+  var writer = new BufferWriter();
+  if (!this.redeemScript.hasCodeseparators()) {
+    var redeemScriptBuffer = this.redeemScript.toBuffer();
+    writer.writeVarintNum(redeemScriptBuffer.length);
+    writer.write(redeemScriptBuffer);
+  } else {
+    throw new Error('@TODO');
+  }
+  return writer.toBuffer();
+};
+
+MultiSigScriptHashInput.prototype.getSighash = function(transaction, privateKey, index, sigtype) {
+  var self = this;
+  var hash;
+  if (self.nestedWitness) {
+    var scriptCode = self.getScriptCode();
+    var satoshisBuffer = self.getSatoshisBuffer();
+    hash = SighashWitness.sighash(transaction, sigtype, index, scriptCode, satoshisBuffer);
+  } else  {
+    hash = Sighash.sighash(transaction, sigtype, index, self.redeemScript);
+  }
+  return hash;
+};
+
 MultiSigScriptHashInput.prototype.getSignatures = function(transaction, privateKey, index, sigtype) {
   $.checkState(this.output instanceof Output);
-  sigtype = sigtype || (Signature.SIGHASH_ALL |  Signature.SIGHASH_FORKID);
+  sigtype = sigtype || Signature.SIGHASH_ALL;
 
   var self = this;
   var results = [];
   _.each(this.publicKeys, function(publicKey) {
     if (publicKey.toString() === privateKey.publicKey.toString()) {
+      var signature;
+      if (self.nestedWitness) {
+        var scriptCode = self.getScriptCode();
+        var satoshisBuffer = self.getSatoshisBuffer();
+        signature = SighashWitness.sign(transaction, privateKey, sigtype, index, scriptCode, satoshisBuffer);
+      } else  {
+        signature = Sighash.sign(transaction, privateKey, sigtype, index, self.redeemScript);
+      }
       results.push(new TransactionSignature({
         publicKey: privateKey.publicKey,
         prevTxId: self.prevTxId,
         outputIndex: self.outputIndex,
         inputIndex: index,
-        signature: Sighash.sign(transaction, privateKey, sigtype, index, self.redeemScript, self.output.satoshisBN),
+        signature: signature,
         sigtype: sigtype
       }));
     }
@@ -100,12 +147,25 @@ MultiSigScriptHashInput.prototype.addSignature = function(transaction, signature
 };
 
 MultiSigScriptHashInput.prototype._updateScript = function() {
-  this.setScript(Script.buildP2SHMultisigIn(
-    this.publicKeys,
-    this.threshold,
-    this._createSignatures(),
-    { cachedMultisig: this.redeemScript }
-  ));
+  if (this.nestedWitness) {
+    var stack = [
+      new Buffer(0),
+    ];
+    var signatures = this._createSignatures();
+    for (var i = 0; i < signatures.length; i++) {
+      stack.push(signatures[i]);
+    }
+    stack.push(this.redeemScript.toBuffer());
+    this.setWitnesses(stack);
+  } else {
+    var scriptSig = Script.buildP2SHMultisigIn(
+      this.publicKeys,
+      this.threshold,
+      this._createSignatures(),
+      { cachedMultisig: this.redeemScript }
+    );
+    this.setScript(scriptSig);
+  }
   return this;
 };
 
@@ -148,16 +208,29 @@ MultiSigScriptHashInput.prototype.publicKeysWithoutSignature = function() {
 };
 
 MultiSigScriptHashInput.prototype.isValidSignature = function(transaction, signature) {
-  // FIXME: Refactor signature so this is not necessary
-  signature.signature.nhashtype = signature.sigtype;
-  return Sighash.verify(
+  if (this.nestedWitness) {
+    signature.signature.nhashtype = signature.sigtype;
+    var scriptCode = this.getScriptCode();
+    var satoshisBuffer = this.getSatoshisBuffer();
+    return SighashWitness.verify(
       transaction,
       signature.signature,
       signature.publicKey,
       signature.inputIndex,
-      this.redeemScript,
-      this.output.satoshisBN
-  );
+      scriptCode,
+      satoshisBuffer
+    );
+  } else {
+    // FIXME: Refactor signature so this is not necessary
+    signature.signature.nhashtype = signature.sigtype;
+    return Sighash.verify(
+      transaction,
+      signature.signature,
+      signature.publicKey,
+      signature.inputIndex,
+      this.redeemScript
+    );
+  }
 };
 
 MultiSigScriptHashInput.OPCODES_SIZE = 7; // serialized size (<=3) + 0 .. N .. M OP_CHECKMULTISIG
