@@ -116,10 +116,12 @@ npm run node
 - [Bitcore ECIES](https://github.com/bitpay/bitcore-ecies) - Uses ECIES symmetric key negotiation from public keys to encrypt arbitrarily long data streams
 - [Bitcore Lib](packages/bitcore-lib) - A pure and powerful JavaScript Bitcoin library
 - [Bitcore Lib Cash](packages/bitcore-lib-cash) - A pure and powerful JavaScript Bitcoin Cash library
+- [Bitcore Lib Peercoin](packages/bitcore-lib-peercoin) - A pure and powerful JavaScript Peercoin library
 - [Bitcore Message](https://github.com/bitpay/bitcore-message) - Bitcoin message verification and signing
 - [Bitcore Mnemonic](packages/bitcore-mnemonic) - Implements mnemonic code for generating deterministic keys
 - [Bitcore P2P](packages/bitcore-p2p) - The peer-to-peer networking protocol for BTC
 - [Bitcore P2P Cash](packages/bitcore-p2p-cash) - The peer-to-peer networking protocol for BCH
+- [Bitcore P2P Peercoin](packages/bitcore-p2p-peercoin) - The peer-to-peer networking protocol for PPC
 - [Crypto Wallet Core](packages/crypto-wallet-core) - A coin-agnostic wallet library for creating transactions, signing, and address derivation
 
 ## Extras
