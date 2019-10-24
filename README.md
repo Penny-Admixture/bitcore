@@ -1,6 +1,6 @@
 # Bitcore
 
-**Infrastructure to build Bitcoin and blockchain-based applications for the next generation of financial technology.**
+**Infrastructure to build Peercoin and blockchain-based applications for the next generation of financial technology.**
 
 ## Getting Started
 
@@ -12,8 +12,8 @@
 ### Checkout the repo
 
 ```sh
-git clone git@github.com:bitpay/bitcore.git
-git checkout master
+git clone git@github.com:peercoin/bitcore.git
+git checkout peercoin
 npm install
 ```
 
@@ -29,66 +29,18 @@ npm install
 {
   "bitcoreNode": {
     "chains": {
-      "BTC": {
-        "mainnet": {
+      "PPC": {
+        "testnet": {
           "chainSource": "p2p",
           "trustedPeers": [
             {
               "host": "127.0.0.1",
-              "port": 20008
+              "port": 9903
             }
           ],
           "rpc": {
             "host": "127.0.0.1",
-            "port": 20009,
-            "username": "username",
-            "password": "password"
-          }
-        },
-        "regtest": {
-          "chainSource": "p2p",
-          "trustedPeers": [
-            {
-              "host": "127.0.0.1",
-              "port": 20020
-            }
-          ],
-          "rpc": {
-            "host": "127.0.0.1",
-            "port": 20021,
-            "username": "username",
-            "password": "password"
-          }
-        }
-      },
-      "BCH": {
-        "mainnet": {
-          "parentChain": "BTC",
-          "forkHeight": 478558,
-          "trustedPeers": [
-            {
-              "host": "127.0.0.1",
-              "port": 30008
-            }
-          ],
-          "rpc": {
-            "host": "127.0.0.1",
-            "port": 30009,
-            "username": "username",
-            "password": "password"
-          }
-        },
-        "regtest": {
-          "chainSource": "p2p",
-          "trustedPeers": [
-            {
-              "host": "127.0.0.1",
-              "port": 30020
-            }
-          ],
-          "rpc": {
-            "host": "127.0.0.1",
-            "port": 30021,
+            "port": 9904,
             "username": "username",
             "password": "password"
           }
@@ -101,27 +53,28 @@ npm install
 
 </details>
 
-### 2. Setup Bitcoin Node
+### 2. Setup Peercoin Node
 
 <details>
-<summary>Example Bitcoin Mainnet Config</summary>
+<summary>Example Peercoin testnet Config</summary>
 
 ```sh
 whitelist=127.0.0.1
 txindex=0
 listen=1
 server=1
-irc=1
 upnp=1
+testnet=1
+minting=0
 
 # Make sure port & rpcport matches the
-# bitcore.config.json ports for BTC mainnet
+# bitcore.config.json ports for PPC testnet
 
-# if using Bitcoin Core v0.17+ prefix
+# if using Peercoin v0.8+ prefix
 # [main]
 
-port=20008
-rpcport=20009
+port=9903
+rpcport=9904
 rpcallowip=127.0.0.1
 
 rpcuser=username
@@ -130,14 +83,14 @@ rpcpassword=password
 
 </details>
 
-### 3. Run Bitcoin node
+### 3. Run Peercoin node
 
 <details>
-<summary>Example Starting a Bitcoin Node</summary>
+<summary>Example Starting a Peercoin Node</summary>
 
 ```sh
 # Path to your bitcoin application and path to the config above
-/Applications/Bitcoin-Qt.app/Contents/MacOS/Bitcoin-Qt -datadir=/Users/username/blockchains/bitcoin-core/networks/mainnet/
+/Applications/Peercoin-Qt.app/Contents/MacOS/Peercoin-Qt -datadir=/Users/username/blockchains/peercoin/networks/testnet/
 ```
 
 </details>
