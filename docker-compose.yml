@@ -6,22 +6,45 @@ services:
     - 27017:27017
     volumes: 
     - /data/db:/data/db
-    
+
   bitcore-node:
     build: .
     image: bitcore-node
     links:
       - database
     ports:
-      - 8100:8100
       - 3000:3000
     environment:
       - DB_HOST=database
     env_file: .env
 
-#insight:
-  #image: insight
-  #links:
-    #- bitcore-node
-  #environment:
-    #- API_URL=bitcore-node
+  insight:
+     build: ./packages/insight
+     image: insight
+     links:
+       - database
+       - peercoind
+     ports:
+       - 8200:8200
+     environment:
+       - CHAIN=PPC
+       - NETWORK=testnet
+     env_file: .env
+
+  peercoind:
+    image: peercoin/peercoind:0.8.4
+    container_name: peercoind
+    environment:
+      - RPC_USER=peercoinrpc
+      - RPC_PASSWORD=Dodm2a7tUGEDcUzZfQacSFKmgfiJSwZNFs6hi6YFqBnC
+    command:
+      -testnet
+      -nominting
+    expose:
+      - "9903"
+      - "9904"
+    volumes:
+      - "peercoin_datadir:/data"
+
+volumes:
+  peercoin_datadir:  
