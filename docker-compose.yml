@@ -33,7 +33,7 @@ services:
 
   peercoind:
     image: peercoin/peercoind:0.8.4
-    container_name: peercoind
+    container_name: peercoind-insight
     environment:
       - RPC_USER=peercoinrpc
       - RPC_PASSWORD=Dodm2a7tUGEDcUzZfQacSFKmgfiJSwZNFs6hi6YFqBnC
